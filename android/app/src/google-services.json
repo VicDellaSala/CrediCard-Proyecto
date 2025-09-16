@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "715127662097",
+    "project_id": "bddproyectocredicard",
+    "storage_bucket": "bddproyectocredicard.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:715127662097:android:76dfd11da63632733273b0",
+        "android_client_info": {
+          "package_name": "com.example.credicardproyecto"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqIsrMrVLwPdt-J5P56mQiQhwrvqv82Uo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
