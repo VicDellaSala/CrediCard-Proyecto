@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/proyectocredicard.iml" filepath="$PROJECT_DIR$/proyectocredicard.iml" />
-      <module fileurl="file://$PROJECT_DIR$/android/proyectocredicard_android.iml" filepath="$PROJECT_DIR$/android/proyectocredicard_android.iml" />
     </modules>
   </component>
 </project>
