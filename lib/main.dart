@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // generado por `flutterfire configure`
 
+// Importa pantallas
+import 'features/landing/presentation/landing_screen.dart';
+import 'features/auth/presentation/login_screen.dart';
+import 'features/auth/presentation/register_screen.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -16,20 +21,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter + Firebase',
-      home: const HomeScreen(),
-    );
-  }
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold( // ← sin `const` (opción A)
-      appBar: AppBar(title: const Text('Firebase conectado')),
-      body: const Center(child: Text('¡Hola Firebase!')),
+      debugShowCheckedModeBanner: false,
+      title: 'Credicard',
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const LandingScreen(),
+        //'/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+      },
     );
   }
 }
