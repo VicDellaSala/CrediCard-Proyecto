@@ -44,14 +44,33 @@ class _LoginScreenState extends State<LoginScreen> {
           .doc(uid)
           .get();
 
-// Si no existe el doc, asumimos 'usuario'
-      final role = (snap.data()?['role'] as String?)?.toLowerCase() ?? 'usuario';
-
       if (!mounted) return;
 
-// 3) Redirigir según rol
-// Asegúrate de tener las rutas '/home' (usuario) y '/admin' (admin)
-      final target = role == 'admin' ? '/admin' : '/home';
+      if (!snap.exists) {
+// Perfil no encontrado: muestra aviso (opción: crear backfill mínimo)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Perfil no encontrado. Contacta soporte.')),
+        );
+        return;
+      }
+
+      final data = snap.data()!;
+      final role = (data['role'] as String?)?.toLowerCase() ?? 'cliente';
+      final status = (data['status'] as String?)?.toLowerCase() ?? 'aprobado';
+
+// 3) Verificar estado (no permitir acceso si está pendiente)
+      if (status == 'pendiente') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tu cuenta está pendiente de aprobación por un administrador.'),
+          ),
+        );
+        return;
+      }
+
+// 4) Redirigir según rol
+// admin_identidades -> /admin ; resto -> /home
+      final target = role == 'admin_identidades' ? '/admin' : '/home';
       Navigator.pushReplacementNamed(context, target);
     } on FirebaseAuthException catch (e) {
       final map = {

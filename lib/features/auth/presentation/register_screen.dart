@@ -2,222 +2,326 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class RegisterScreen extends StatelessWidget {
+class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
-// Color celeste suave de la referencia
-  static const _panelColor = Color(0xFFAED6D8); // ajusta si quieres otro tono
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  static const _panelColor = Color(0xFFAED6D8);
+
+  final _formKey = GlobalKey<FormState>();
+
+  final _nameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
+
+  bool _obscure = true;
+  bool _obscureConfirm = true;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  bool _isCredicardEmail(String email) =>
+      email.toLowerCase().trim().endsWith('@credicard.com.ve');
+
+  bool _isFirstIdentityAdmin(String email) =>
+      email.toLowerCase().trim() == 'identidad@credicard.com.ve';
+
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _loading = true);
+    try {
+      final firstName = _nameCtrl.text.trim();
+      final lastName = _lastNameCtrl.text.trim();
+      final email = _emailCtrl.text.trim();
+      final pass = _passCtrl.text.trim();
+
+// 1) Crear cuenta en Auth
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: pass,
+      );
+      final uid = cred.user!.uid;
+
+// 2) Determinar rol y estado inicial
+      String role;
+      String status;
+      bool companyUser = _isCredicardEmail(email);
+
+      if (_isFirstIdentityAdmin(email)) {
+        role = 'admin_identidades';
+        status = 'aprobado';
+      } else if (companyUser) {
+        role = 'pendiente';
+        status = 'pendiente';
+      } else {
+        role = 'cliente';
+        status = 'aprobado';
+      }
+
+// 3) Guardar perfil en Firestore
+      final users = FirebaseFirestore.instance.collection('users');
+      await users.doc(uid).set({
+        'firstName': firstName,
+        'lastName': lastName,
+        'fullName': '$firstName $lastName',
+        'email': email,
+        'role': role,
+        'status': status,
+        'companyUser': companyUser,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+// 4) Crear solicitud si es corporativo (y no el primer admin)
+      if (companyUser && !_isFirstIdentityAdmin(email)) {
+        await FirebaseFirestore.instance.collection('role_requests').add({
+          'userId': uid,
+          'email': email,
+          'fullName': '$firstName $lastName',
+          'requestedAt': FieldValue.serverTimestamp(),
+          'status': 'pendiente',
+        });
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            companyUser && !_isFirstIdentityAdmin(email)
+                ? 'Registro enviado. Un administrador asignará tu rol.'
+                : 'Registro exitoso.',
+          ),
+        ),
+      );
+
+      Navigator.pushReplacementNamed(context, '/login');
+    } on FirebaseAuthException catch (e) {
+      final map = {
+        'email-already-in-use': 'El correo ya está registrado.',
+        'invalid-email': 'Correo inválido.',
+        'weak-password': 'La contraseña es muy débil (mín. 6).',
+        'operation-not-allowed': 'Método de inicio de sesión deshabilitado.',
+        'network-request-failed': 'Fallo de red. Verifica tu conexión.',
+      };
+      final msg = map[e.code] ?? (e.message ?? 'Error de autenticación');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $msg')));
+      }
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error guardando datos: ${e.message ?? e.code}')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Error inesperado')));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String? _emailValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Ingresa tu email';
+    if (!v.contains('@') || !v.contains('.')) return 'Email inválido';
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF2F2F2), // gris claro de fondo
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-// HEADER: flecha + título centrado
-                    Container(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F2),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+// Header
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _panelColor,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                          tooltip: 'Volver',
+                        ),
+                        const Spacer(),
+                        const Text(
+                          'Registro',
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                            shadows: [
+                              Shadow(blurRadius: 2, color: Colors.black26, offset: Offset(0, 1)),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        const SizedBox(width: 48),
+                      ],
+                    ),
+                  ),
+
+                  Container(
+                    width: double.infinity,
+                    color: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: const SizedBox.shrink(),
+                  ),
+
+// Formulario
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
                       decoration: BoxDecoration(
                         color: _panelColor,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.arrow_back, color: Colors.black87),
-                            tooltip: 'Volver',
-                          ),
-                          const Spacer(),
-                          const Text(
-                            'Registro',
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                              shadows: [
-                                Shadow(blurRadius: 2, color: Colors.black26, offset: Offset(0, 1)),
-                              ],
+                      margin: const EdgeInsets.only(top: 8),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 540),
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(16),
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Form(
+                                key: _formKey,
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _nameCtrl,
+                                            decoration: const InputDecoration(labelText: 'Nombre'),
+                                            validator: (v) => (v == null || v.trim().isEmpty)
+                                                ? 'Ingresa tu nombre'
+                                                : null,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _lastNameCtrl,
+                                            decoration: const InputDecoration(labelText: 'Apellidos'),
+                                            validator: (v) => (v == null || v.trim().isEmpty)
+                                                ? 'Ingresa tus apellidos'
+                                                : null,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _emailCtrl,
+                                      decoration: const InputDecoration(labelText: 'Correo electrónico'),
+                                      keyboardType: TextInputType.emailAddress,
+                                      validator: _emailValidator,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _passCtrl,
+                                            decoration: InputDecoration(
+                                              labelText: 'Contraseña',
+                                              suffixIcon: IconButton(
+                                                onPressed: () => setState(() => _obscure = !_obscure),
+                                                icon: Icon(_obscure
+                                                    ? Icons.visibility
+                                                    : Icons.visibility_off),
+                                              ),
+                                            ),
+                                            obscureText: _obscure,
+                                            validator: (v) => (v == null || v.length < 6)
+                                                ? 'Mínimo 6 caracteres'
+                                                : null,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _confirmCtrl,
+                                            decoration: InputDecoration(
+                                              labelText: 'Confirmar contraseña',
+                                              suffixIcon: IconButton(
+                                                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                                                icon: Icon(_obscureConfirm
+                                                    ? Icons.visibility
+                                                    : Icons.visibility_off),
+                                              ),
+                                            ),
+                                            obscureText: _obscureConfirm,
+                                            validator: (v) => (v != _passCtrl.text)
+                                                ? 'Las contraseñas no coinciden'
+                                                : null,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+                                    SizedBox(
+                                      height: 48,
+                                      width: double.infinity,
+                                      child: ElevatedButton(
+                                        onPressed: _loading ? null : _register,
+                                        child: _loading
+                                            ? const CircularProgressIndicator(color: Colors.white)
+                                            : const Text('Crear cuenta'),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Text('¿Ya tienes cuenta?'),
+                                        TextButton(
+                                          onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                                          child: const Text('Inicia sesión'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                          const Spacer(),
-                          const SizedBox(width: 48), // balancea el espacio de la flecha
-                        ],
-                      ),
-                    ),
-
-// TABS strip blanca
-                    Container(
-                      width: double.infinity,
-                      color: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: TabBar(
-                        indicatorColor: Colors.transparent, // sin subrayado
-                        labelColor: Colors.black87,
-                        unselectedLabelColor: Colors.black54,
-                        overlayColor: MaterialStateProperty.all(Colors.transparent),
-                        tabs: const [
-                          Tab(text: 'Usuario'),
-                          Tab(text: 'Administrador'),
-                        ],
-                      ),
-                    ),
-
-// CONTENEDOR grande celeste con esquinas redondeadas
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: _panelColor,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        margin: const EdgeInsets.only(top: 8),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: const TabBarView(
-                            children: [
-                              _UserRegisterForm(), // 👈 Formularios intactos
-                              _AdminRegisterForm(),
-                            ],
-                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------- FORM: USUARIO (SIN CAMBIOS DE LÓGICA) ----------
-class _UserRegisterForm extends StatefulWidget {
-  const _UserRegisterForm();
-
-  @override
-  State<_UserRegisterForm> createState() => _UserRegisterFormState();
-}
-
-class _UserRegisterFormState extends State<_UserRegisterForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
-  bool _loading = false;
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _passCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _registerUser() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
-
-    try {
-      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text.trim(),
-      );
-
-      await FirebaseFirestore.instance.collection('users').doc(cred.user!.uid).set({
-        'name': _nameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'role': 'usuario',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuario registrado con éxito')),
-      );
-      Navigator.pushReplacementNamed(context, '/');
-    } on FirebaseAuthException catch (e) {
-      final map = {
-        'email-already-in-use': 'El correo ya está registrado.',
-        'invalid-email': 'Correo inválido.',
-        'weak-password': 'La contraseña es muy débil (mín. 6).',
-        'operation-not-allowed': 'Método de inicio de sesión deshabilitado.',
-        'network-request-failed': 'Fallo de red. Verifica tu conexión.',
-      };
-      final msg = map[e.code] ?? (e.message ?? 'Error de autenticación');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $msg')));
-      }
-    } on FirebaseException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error guardando datos: ${e.message ?? e.code}')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-// Caja blanca para que los inputs resalten sobre el panel celeste
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Nombre'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa tu nombre' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _emailCtrl,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) => (v == null || !v.contains('@')) ? 'Email inválido' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passCtrl,
-                    decoration: const InputDecoration(labelText: 'Contraseña'),
-                    obscureText: true,
-                    validator: (v) => (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _registerUser,
-                      child: _loading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Crear cuenta'),
                     ),
                   ),
                 ],
@@ -230,136 +334,3 @@ class _UserRegisterFormState extends State<_UserRegisterForm> {
   }
 }
 
-// ---------- FORM: ADMIN (SIN CAMBIOS DE LÓGICA) ----------
-class _AdminRegisterForm extends StatefulWidget {
-  const _AdminRegisterForm();
-
-  @override
-  State<_AdminRegisterForm> createState() => _AdminRegisterFormState();
-}
-
-class _AdminRegisterFormState extends State<_AdminRegisterForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
-  final _adminCodeCtrl = TextEditingController();
-  bool _loading = false;
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _passCtrl.dispose();
-    _adminCodeCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _registerAdmin() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
-
-    try {
-      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text.trim(),
-      );
-
-      await FirebaseFirestore.instance.collection('users').doc(cred.user!.uid).set({
-        'name': _nameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'role': 'admin',
-        'adminCode': _adminCodeCtrl.text.trim(),
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Administrador registrado con éxito')),
-      );
-      Navigator.pushReplacementNamed(context, '/');
-    } on FirebaseAuthException catch (e) {
-      final map = {
-        'email-already-in-use': 'El correo ya está registrado.',
-        'invalid-email': 'Correo inválido.',
-        'weak-password': 'La contraseña es muy débil (mín. 6).',
-        'operation-not-allowed': 'Método de inicio de sesión deshabilitado.',
-        'network-request-failed': 'Fallo de red. Verifica tu conexión.',
-      };
-      final msg = map[e.code] ?? (e.message ?? 'Error de autenticación');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $msg')));
-      }
-    } on FirebaseException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error guardando datos: ${e.message ?? e.code}')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Nombre'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa tu nombre' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _emailCtrl,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) => (v == null || !v.contains('@')) ? 'Email inválido' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passCtrl,
-                    decoration: const InputDecoration(labelText: 'Contraseña'),
-                    obscureText: true,
-                    validator: (v) => (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _adminCodeCtrl,
-                    decoration: const InputDecoration(labelText: 'Código administrador'),
-                    validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _registerAdmin,
-                      child: _loading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Crear cuenta de administrador'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

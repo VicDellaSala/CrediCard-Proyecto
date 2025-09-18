@@ -28,7 +28,41 @@ class MyApp extends StatelessWidget {
         '/': (context) => const LandingScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
+
+// 👇 Rutas necesarias para login según rol
+        '/home': (context) => const UserHomeScreen(),
+        '/admin': (context) => const AdminHomeScreen(),
       },
+    );
+  }
+}
+
+/// Pantalla temporal para usuarios (cliente, supervisor, operador)
+class UserHomeScreen extends StatelessWidget {
+  const UserHomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Home Usuario')),
+      body: const Center(
+        child: Text('Bienvenido al Home de Usuario'),
+      ),
+    );
+  }
+}
+
+/// Pantalla temporal para admin de identidades
+class AdminHomeScreen extends StatelessWidget {
+  const AdminHomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Panel Admin Identidades')),
+      body: const Center(
+        child: Text('Bienvenido al Panel del Administrador de Identidades'),
+      ),
     );
   }
 }
