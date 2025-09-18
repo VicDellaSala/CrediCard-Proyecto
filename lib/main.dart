@@ -6,6 +6,9 @@ import 'firebase_options.dart'; // generado por `flutterfire configure`
 import 'features/landing/presentation/landing_screen.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/register_screen.dart';
+import 'features/admin/presentation/identity_requests_screen.dart';
+import 'features/admin/presentation/admin_home_screen.dart';
+import 'features/operator/presentation/operator_home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,15 +32,17 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
 
-// 👇 Rutas necesarias para login según rol
+// Rutas según rol
         '/home': (context) => const UserHomeScreen(),
         '/admin': (context) => const AdminHomeScreen(),
+        '/admin/identity-requests': (context) => const IdentityRequestsScreen(),
+        '/operator': (context) => const OperatorHomeScreen(),
       },
     );
   }
 }
 
-/// Pantalla temporal para usuarios (cliente, supervisor, operador)
+/// Pantalla temporal para usuarios (clientes, supervisores, etc.)
 class UserHomeScreen extends StatelessWidget {
   const UserHomeScreen({super.key});
 
@@ -52,18 +57,4 @@ class UserHomeScreen extends StatelessWidget {
   }
 }
 
-/// Pantalla temporal para admin de identidades
-class AdminHomeScreen extends StatelessWidget {
-  const AdminHomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Panel Admin Identidades')),
-      body: const Center(
-        child: Text('Bienvenido al Panel del Administrador de Identidades'),
-      ),
-    );
-  }
-}
 
