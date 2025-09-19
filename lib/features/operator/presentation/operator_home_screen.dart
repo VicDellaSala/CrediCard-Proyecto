@@ -13,12 +13,8 @@ class OperatorHomeScreen extends StatelessWidget {
         title: const Text('Cerrar sesión'),
         content: const Text('¿Seguro que quieres salir?'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Salir')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Salir')),
         ],
       ),
     );
@@ -30,37 +26,31 @@ class OperatorHomeScreen extends StatelessWidget {
     }
   }
 
-  Widget _buildMenuButton(
-      {required IconData icon,
-        required String label,
-        required VoidCallback onPressed}) {
-    return SizedBox(
-      width: double.infinity,
-      height: 60,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 28),
-        label: Text(label, style: const TextStyle(fontSize: 18)),
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final crossAxisCount = width < 700 ? 2 : 3;
+
+    final items = <_OpItem>[
+      _OpItem('Ventas', Icons.shopping_cart, '/operator/ventas'),
+      _OpItem('Consultas', Icons.search, '/operator/consultas'),
+      _OpItem('Reportes', Icons.bar_chart, '/operator/reportes'),
+      _OpItem('Banco', Icons.account_balance, '/operator/banco'),
+      _OpItem('Almacén', Icons.inventory, '/operator/almacen'),
+      _OpItem('Finanzas', Icons.attach_money, '/operator/finanzas'),
+    ];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
+            constraints: const BoxConstraints(maxWidth: 1100),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-// HEADER azulito
+// Header azulito
                   Container(
                     decoration: BoxDecoration(
                       color: _panelColor,
@@ -82,12 +72,7 @@ class OperatorHomeScreen extends StatelessWidget {
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                  blurRadius: 2,
-                                  color: Colors.black26,
-                                  offset: Offset(0, 1)),
-                            ],
+                            shadows: [Shadow(blurRadius: 2, color: Colors.black26, offset: Offset(0, 1))],
                           ),
                         ),
                         const Spacer(),
@@ -96,7 +81,7 @@ class OperatorHomeScreen extends StatelessWidget {
                     ),
                   ),
 
-// Banda blanca
+// Banda blanca fina
                   Container(
                     width: double.infinity,
                     color: Colors.white,
@@ -104,7 +89,7 @@ class OperatorHomeScreen extends StatelessWidget {
                     child: const SizedBox.shrink(),
                   ),
 
-// CONTENIDO con botones
+// Panel con grilla de menús
                   Expanded(
                     child: Container(
                       width: double.infinity,
@@ -114,40 +99,16 @@ class OperatorHomeScreen extends StatelessWidget {
                       ),
                       margin: const EdgeInsets.only(top: 8),
                       child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildMenuButton(
-                                icon: Icons.shopping_cart,
-                                label: 'Ventas',
-                                onPressed: () {}),
-                            const SizedBox(height: 16),
-                            _buildMenuButton(
-                                icon: Icons.search,
-                                label: 'Consultas',
-                                onPressed: () {}),
-                            const SizedBox(height: 16),
-                            _buildMenuButton(
-                                icon: Icons.bar_chart,
-                                label: 'Reportes',
-                                onPressed: () {}),
-                            const SizedBox(height: 16),
-                            _buildMenuButton(
-                                icon: Icons.account_balance,
-                                label: 'Banco',
-                                onPressed: () {}),
-                            const SizedBox(height: 16),
-                            _buildMenuButton(
-                                icon: Icons.inventory,
-                                label: 'Almacén',
-                                onPressed: () {}),
-                            const SizedBox(height: 16),
-                            _buildMenuButton(
-                                icon: Icons.attach_money,
-                                label: 'Finanzas',
-                                onPressed: () {}),
-                          ],
+                        padding: const EdgeInsets.all(16),
+                        child: GridView.builder(
+                          itemCount: items.length,
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 1.2,
+                          ),
+                          itemBuilder: (_, i) => _OpCard(item: items[i]),
                         ),
                       ),
                     ),
@@ -156,6 +117,43 @@ class OperatorHomeScreen extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OpItem {
+  final String title;
+  final IconData icon;
+  final String route;
+  const _OpItem(this.title, this.icon, this.route);
+}
+
+class _OpCard extends StatelessWidget {
+  final _OpItem item;
+  const _OpCard({required this.item, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, item.route),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(item.icon, size: 48, color: Colors.black87),
+            const SizedBox(height: 12),
+            Text(item.title, textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          ],
         ),
       ),
     );
