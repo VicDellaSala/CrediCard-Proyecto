@@ -7,40 +7,75 @@ class VentasScreen extends StatelessWidget {
 
   static const _panelColor = Color(0xFFAED6D8);
 
+// ======== FLOW PRINCIPAL ===================================================
   Future<void> _startFlow(BuildContext context, String canal) async {
-// 1) pedir correo
-    final email = await _askEmail(context, canal);
-    if (email == null) return;
+// 1) pedir RIF
+    final rif = await _askRif(context, canal);
+    if (rif == null) return;
 
-    final doc = await FirebaseFirestore.instance
-        .collection('customers')
-        .doc(email.toLowerCase())
-        .get();
+    final rifLower = rif.trim().toLowerCase();
+    debugPrint('[Ventas] Buscar por RIF: $rifLower');
 
-    if (doc.exists) {
-// 2a) ya existe
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuario registrado')),
+    try {
+      final q = await FirebaseFirestore.instance
+          .collection('Cliente_completo')
+          .where('rif_lower', isEqualTo: rifLower)
+          .limit(1)
+          .get();
+
+      if (q.docs.isNotEmpty) {
+        final doc = q.docs.first;
+        debugPrint('[Ventas] Cliente EXISTE: ${doc.id}');
+        if (!context.mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _ClienteDetalleScreen(docId: doc.id),
+          ),
+        );
+        return;
+      }
+
+// 2) no existe → abrir formulario para crearlo
+      debugPrint('[Ventas] Cliente NO existe. Abriendo formulario…');
+      final createdDocId = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => _CustomerForm(
+          initialRif: rifLower,
+          canal: canal,
+        ),
+      );
+
+// si se guardó, navegar al detalle vacío
+      if (createdDocId != null && context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _ClienteDetalleScreen(docId: createdDocId),
+          ),
         );
       }
-      return;
+    } on FirebaseException catch (e) {
+      debugPrint('[Ventas] Firestore error: ${e.code} - ${e.message}');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error Firestore: ${e.message ?? e.code}')),
+        );
+      }
+    } catch (e) {
+      debugPrint('[Ventas] Error inesperado: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ocurrió un error inesperado')),
+        );
+      }
     }
-
-// 2b) no existe → abrir formulario de datos
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _CustomerForm(
-        initialEmail: email,
-        canal: canal,
-      ),
-    );
   }
 
-  /// diálogo simple para pedir email o cancelar
-  Future<String?> _askEmail(BuildContext context, String canal) async {
+// ======== UI: DIALOGO PARA RIF ============================================
+  Future<String?> _askRif(BuildContext context, String canal) async {
     final formKey = GlobalKey<FormState>();
     final ctrl = TextEditingController();
 
@@ -53,13 +88,12 @@ class VentasScreen extends StatelessWidget {
           child: TextFormField(
             controller: ctrl,
             decoration: const InputDecoration(
-              labelText: 'Correo del cliente',
-              hintText: 'cliente@correo.com',
+              labelText: 'RIF del cliente',
+              hintText: 'Ej: 123456789 (ultimo valor pegado)',
             ),
-            keyboardType: TextInputType.emailAddress,
             validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Ingresa un correo';
-              if (!v.contains('@') || !v.contains('.')) return 'Correo inválido';
+              if (v == null || v.trim().isEmpty) return 'Ingresa un RIF';
+// puedes reforzar validación si necesitas un patrón específico
               return null;
             },
           ),
@@ -79,6 +113,7 @@ class VentasScreen extends StatelessWidget {
     );
   }
 
+// ======== UI: MENU ========================================================
   Widget _menuButton(BuildContext ctx, IconData icon, String label, String canal) {
     return SizedBox(
       width: double.infinity,
@@ -103,7 +138,7 @@ class VentasScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-// Header azul (flecha vuelve al panel Operador)
+// Header azul (volver al panel Operador)
                   Container(
                     decoration: BoxDecoration(
                       color: _panelColor,
@@ -142,8 +177,6 @@ class VentasScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-
-// Banda blanca fina
                   Container(width: double.infinity, color: Colors.white, height: 8),
 
 // Menú con 4 opciones
@@ -182,10 +215,11 @@ class VentasScreen extends StatelessWidget {
   }
 }
 
+// ======== BOTTOM SHEET: FORMULARIO DE NUEVO CLIENTE =========================
 class _CustomerForm extends StatefulWidget {
-  final String initialEmail;
+  final String initialRif; // rif en lower
   final String canal;
-  const _CustomerForm({required this.initialEmail, required this.canal});
+  const _CustomerForm({required this.initialRif, required this.canal});
 
   @override
   State<_CustomerForm> createState() => _CustomerFormState();
@@ -194,37 +228,36 @@ class _CustomerForm extends StatefulWidget {
 class _CustomerFormState extends State<_CustomerForm> {
   final _formKey = GlobalKey<FormState>();
 
-// Campos “adicionales”
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _phone1Ctrl = TextEditingController();
   final _phone2Ctrl = TextEditingController();
   final _rifCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _extraEmailCtrl = TextEditingController();
+  final _deudaCtrl = TextEditingController(text: '0');
 
-// Nuevo cliente (opcional)
-  bool _isNew = false;
-  final _firstNameCtrl = TextEditingController();
-  final _lastNameCtrl = TextEditingController();
-  late final TextEditingController _mainEmailCtrl;
-
+  bool _afiliado = false;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _mainEmailCtrl = TextEditingController(text: widget.initialEmail);
+    _rifCtrl.text = widget.initialRif; // ya viene en lower
   }
 
   @override
   void dispose() {
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
     _addressCtrl.dispose();
     _phone1Ctrl.dispose();
     _phone2Ctrl.dispose();
     _rifCtrl.dispose();
+    _emailCtrl.dispose();
     _extraEmailCtrl.dispose();
-    _firstNameCtrl.dispose();
-    _lastNameCtrl.dispose();
-    _mainEmailCtrl.dispose();
+    _deudaCtrl.dispose();
     super.dispose();
   }
 
@@ -235,33 +268,48 @@ class _CustomerFormState extends State<_CustomerForm> {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
 
-// usamos el correo principal como ID de documento
-      final docId = _mainEmailCtrl.text.trim().toLowerCase();
+      final first = _firstNameCtrl.text.trim();
+      final last = _lastNameCtrl.text.trim();
+      final full = '$first $last'.trim();
+      final fullLower = full.toLowerCase();
+
+      final rif = _rifCtrl.text.trim();
+      final rifLower = rif.toLowerCase();
+
+      final email = _emailCtrl.text.trim();
+      final emailLower = email.toLowerCase();
+
+      final deudaNum = num.tryParse(_deudaCtrl.text.trim()) ?? 0;
 
       final data = <String, dynamic>{
-        'firstName': _isNew ? _firstNameCtrl.text.trim() : FieldValue.delete(),
-        'lastName': _isNew ? _lastNameCtrl.text.trim() : FieldValue.delete(),
-        'email': _mainEmailCtrl.text.trim(),
+        'first_name': first,
+        'last_name': last,
+        'full_name': full,
+        'full_name_lower': fullLower,
         'address': _addressCtrl.text.trim(),
-        'phone1': _phone1Ctrl.text.trim(),
-        'phone2': _phone2Ctrl.text.trim(),
-        'rif': _rifCtrl.text.trim(),
-        'extraEmail': _extraEmailCtrl.text.trim(),
+        'phone_1': _phone1Ctrl.text.trim(),
+        'phone_2': _phone2Ctrl.text.trim(),
+        'rif': rif,
+        'rif_lower': rifLower,
+        'email': email,
+        'email_lower': emailLower,
+        'extra_email': _extraEmailCtrl.text.trim(),
+        'deuda': deudaNum,
+        'afiliado': _afiliado,
         'channel': widget.canal,
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': uid,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+        'created_by': uid,
       };
 
-// limpiar deletes (para evitar claves con FieldValue.delete si _isNew=false)
-      data.removeWhere((k, v) => v is FieldValue && v == FieldValue.delete());
-
+// DocID = email_lower
       await FirebaseFirestore.instance
-          .collection('customers')
-          .doc(docId)
+          .collection('Cliente_completo')
+          .doc(emailLower)
           .set(data, SetOptions(merge: true));
 
       if (!mounted) return;
-      Navigator.pop(context); // cerrar hoja
+      Navigator.pop(context, emailLower); // devolvemos docId para abrir detalle
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Usuario registrado')),
       );
@@ -294,79 +342,89 @@ class _CustomerFormState extends State<_CustomerForm> {
             child: ListView(
               shrinkWrap: true,
               children: [
-// Título
                 Row(
-                  children: [
-                    const Icon(Icons.person_add_alt_1),
-                    const SizedBox(width: 8),
-                    Text('Registrar cliente — ${widget.canal}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  children: const [
+                    Icon(Icons.person_add_alt_1),
+                    SizedBox(width: 8),
+                    Text('Registrar nuevo cliente',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 12),
 
-// Toggle “Es nuevo cliente”
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Es nuevo cliente (añadir nombre/apellido/correo)'),
-                  value: _isNew,
-                  onChanged: (v) => setState(() => _isNew = v),
+                TextFormField(
+                  controller: _firstNameCtrl,
+                  decoration: const InputDecoration(labelText: 'Nombre'),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
                 ),
-
-                if (_isNew) ...[
-                  TextFormField(
-                    controller: _firstNameCtrl,
-                    decoration: const InputDecoration(labelText: 'Nombre'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: _lastNameCtrl,
-                    decoration: const InputDecoration(labelText: 'Apellido'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
-                  ),
-                  const SizedBox(height: 10),
-                ],
+                const SizedBox(height: 10),
 
                 TextFormField(
-                  controller: _mainEmailCtrl,
-                  decoration: const InputDecoration(labelText: 'Correo principal'),
+                  controller: _lastNameCtrl,
+                  decoration: const InputDecoration(labelText: 'Apellido'),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                ),
+                const SizedBox(height: 10),
+
+                TextFormField(
+                  controller: _emailCtrl,
+                  decoration: const InputDecoration(labelText: 'Correo propio'),
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Requerido';
-                    if (!v.contains('@') || !v.contains('.')) return 'Correo inválido';
+                    final t = v.trim();
+                    if (!t.contains('@') || !t.contains('.')) return 'Correo inválido';
                     return null;
                   },
                 ),
                 const SizedBox(height: 10),
 
-// Campos adicionales (siempre)
+                TextFormField(
+                  controller: _extraEmailCtrl,
+                  decoration: const InputDecoration(labelText: 'Correo adicional'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 10),
+
                 TextFormField(
                   controller: _rifCtrl,
                   decoration: const InputDecoration(labelText: 'RIF'),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
                 ),
                 const SizedBox(height: 10),
+
                 TextFormField(
                   controller: _addressCtrl,
                   decoration: const InputDecoration(labelText: 'Dirección'),
                 ),
                 const SizedBox(height: 10),
+
                 TextFormField(
                   controller: _phone1Ctrl,
                   decoration: const InputDecoration(labelText: 'Teléfono 1'),
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 10),
+
                 TextFormField(
                   controller: _phone2Ctrl,
                   decoration: const InputDecoration(labelText: 'Teléfono 2'),
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 10),
+
                 TextFormField(
-                  controller: _extraEmailCtrl,
-                  decoration: const InputDecoration(labelText: 'Correo adicional'),
-                  keyboardType: TextInputType.emailAddress,
+                  controller: _deudaCtrl,
+                  decoration: const InputDecoration(labelText: 'Deuda (número)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 10),
+
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _afiliado,
+                  onChanged: (v) => setState(() => _afiliado = v),
+                  title: const Text('Afiliado'),
                 ),
                 const SizedBox(height: 16),
 
@@ -376,7 +434,10 @@ class _CustomerFormState extends State<_CustomerForm> {
                     onPressed: _saving ? null : _save,
                     icon: _saving
                         ? const SizedBox(
-                        width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
                         : const Icon(Icons.save),
                     label: Text(_saving ? 'Guardando...' : 'Guardar'),
                   ),
@@ -384,6 +445,69 @@ class _CustomerFormState extends State<_CustomerForm> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ======== PANTALLA DE DETALLE VACIA (placeholder) ===========================
+class _ClienteDetalleScreen extends StatelessWidget {
+  final String docId;
+  const _ClienteDetalleScreen({required this.docId});
+
+  static const _panelColor = Color(0xFFAED6D8);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F2),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: _panelColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                    label: const Text('Volver',
+                        style: TextStyle(color: Colors.black87, fontSize: 16)),
+                  ),
+                  const Spacer(),
+                  const Text(
+                    'Detalle de cliente',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Spacer(),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Container(height: 8, color: Colors.white),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(
+                  color: _panelColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Center(
+                  child: Text('Pantalla de detalle (vacía)\nDocId: $docId',
+                      textAlign: TextAlign.center),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
