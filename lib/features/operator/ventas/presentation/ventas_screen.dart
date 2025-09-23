@@ -7,7 +7,7 @@ class VentasScreen extends StatelessWidget {
 
   static const _panelColor = Color(0xFFAED6D8);
 
-// ======== FLOW PRINCIPAL ===================================================
+  // ======== FLOW PRINCIPAL ===================================================
   Future<void> _startFlow(BuildContext context, String canal) async {
     final rif = await _askRif(context, canal);
     if (rif == null) return;
@@ -26,15 +26,16 @@ class VentasScreen extends StatelessWidget {
         final doc = q.docs.first;
         final data = doc.data();
         final deuda = _toNum(data['deuda']) ?? 0;
+        final nombre = (data['full_name'] as String?) ?? 'Cliente';
 
         debugPrint('[Ventas] Cliente EXISTE: ${doc.id} - deuda=$deuda');
 
-// --- RAMAS POR DEUDA ---
+        // --- RAMAS POR DEUDA ---
         if (deuda > 500) {
           if (!context.mounted) return;
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => _DebtBlockScreen(amount: deuda)),
+            MaterialPageRoute(builder: (_) => _DebtBlockScreen(amount: deuda, clientName: nombre)),
           );
           return;
         } else if (deuda >= 1 && deuda <= 499) {
@@ -44,6 +45,7 @@ class VentasScreen extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) => _DebtWarnScreen(
                 amount: deuda,
+                clientName: nombre,
                 onContinue: () {
                   _routeByAfiliacion(context, doc.id, data);
                 },
@@ -52,14 +54,14 @@ class VentasScreen extends StatelessWidget {
           );
           return;
         } else {
-// deuda == 0
+          // deuda == 0
           if (!context.mounted) return;
           _routeByAfiliacion(context, doc.id, data);
           return;
         }
       }
 
-// 2) no existe → abrir formulario para crearlo
+      // 2) no existe → abrir formulario para crearlo
       debugPrint('[Ventas] Cliente NO existe. Abriendo formulario…');
       final createdDocId = await showModalBottomSheet<String>(
         context: context,
@@ -72,7 +74,7 @@ class VentasScreen extends StatelessWidget {
       );
 
       if (createdDocId != null && context.mounted) {
-// leer el doc recién creado para decidir flujo de afiliado
+        // leer el doc recién creado para decidir flujo de afiliado
         final snap = await FirebaseFirestore.instance
             .collection('Cliente_completo')
             .doc(createdDocId)
@@ -97,15 +99,14 @@ class VentasScreen extends StatelessWidget {
     }
   }
 
-// Chequeo de afiliación y ruteo
+  // Chequeo de afiliación y ruteo
   void _routeByAfiliacion(BuildContext context, String docId, Map<String, dynamic> data) {
     final afiliado = (data['afiliado'] == true);
     final bank = (data['bank'] as String?)?.trim();
     final preventaEstado = (data['preventa_estado'] as String?)?.toLowerCase();
 
-// Si ya tiene preventa pendiente pero no afiliado, podemos informar (opcional)
+    // Si ya tiene preventa pendiente pero no afiliado, mostrar rama pendiente
     if (preventaEstado == 'pendiente' && !afiliado) {
-// Continúa al flujo de afiliación pendiente
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -116,28 +117,18 @@ class VentasScreen extends StatelessWidget {
     }
 
     if (afiliado && bank != null && bank.isNotEmpty) {
-// Afiliado existente → pantalla con opciones
+      // Afiliado existente → pantalla con opciones (incluye "Solicitar nuevo afiliado")
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => _AfiliadoExistenteScreen(
+            docId: docId,
             bank: bank,
-            onSolicitarNuevo: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Acción: Solicitar afiliado nuevo (pendiente)')),
-              );
-            },
-            onContinuar: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => _ClienteDetalleScreen(docId: docId)),
-              );
-            },
           ),
         ),
       );
     } else {
-// No afiliado → pendiente por creación
+      // No afiliado → pendiente por creación
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -156,7 +147,7 @@ class VentasScreen extends StatelessWidget {
     return 0;
   }
 
-// ======== UI: DIALOGO PARA RIF ============================================
+  // ======== UI: DIALOGO PARA RIF ============================================
   Future<String?> _askRif(BuildContext context, String canal) async {
     final formKey = GlobalKey<FormState>();
     final ctrl = TextEditingController();
@@ -194,7 +185,7 @@ class VentasScreen extends StatelessWidget {
     );
   }
 
-// ======== UI: MENU ========================================================
+  // ======== UI: MENU ========================================================
   Widget _menuButton(BuildContext ctx, IconData icon, String label, String canal) {
     return SizedBox(
       width: double.infinity,
@@ -219,7 +210,7 @@ class VentasScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-// Header azul (volver al panel Operador)
+                  // Header azul (volver al panel Operador)
                   Container(
                     decoration: BoxDecoration(
                       color: _panelColor,
@@ -260,7 +251,7 @@ class VentasScreen extends StatelessWidget {
                   ),
                   Container(width: double.infinity, color: Colors.white, height: 8),
 
-// Menú con 4 opciones
+                  // Menú con 4 opciones
                   Expanded(
                     child: Container(
                       margin: const EdgeInsets.only(top: 8),
@@ -572,7 +563,8 @@ class _CustomerFormState extends State<_CustomerForm> {
 // ======== PANTALLAS ESPECIALES POR DEUDA ====================================
 class _DebtBlockScreen extends StatelessWidget {
   final num amount;
-  const _DebtBlockScreen({required this.amount});
+  final String clientName;
+  const _DebtBlockScreen({required this.amount, required this.clientName});
 
   static const _panelColor = Color(0xFFAED6D8);
 
@@ -607,7 +599,7 @@ class _DebtBlockScreen extends StatelessWidget {
                       const Icon(Icons.report, size: 64, color: Colors.redAccent),
                       const SizedBox(height: 16),
                       Text(
-                        'El cliente mantiene una deuda muy alta.\nMonto: $amount',
+                        '$clientName mantiene una deuda muy alta.\nMonto: $amount',
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                       ),
@@ -635,8 +627,9 @@ class _DebtBlockScreen extends StatelessWidget {
 
 class _DebtWarnScreen extends StatelessWidget {
   final num amount;
+  final String clientName;
   final VoidCallback onContinue;
-  const _DebtWarnScreen({required this.amount, required this.onContinue});
+  const _DebtWarnScreen({required this.amount, required this.clientName, required this.onContinue});
 
   static const _panelColor = Color(0xFFAED6D8);
 
@@ -671,7 +664,7 @@ class _DebtWarnScreen extends StatelessWidget {
                       const Icon(Icons.warning_amber_rounded, size: 64, color: Colors.orange),
                       const SizedBox(height: 16),
                       Text(
-                        'El cliente tiene una deuda de $amount.',
+                        '$clientName tiene una deuda de $amount.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                       ),
@@ -713,14 +706,9 @@ class _DebtWarnScreen extends StatelessWidget {
 
 // ======== FLUJO DE AFILIADO =================================================
 class _AfiliadoExistenteScreen extends StatelessWidget {
+  final String docId;
   final String bank;
-  final VoidCallback onSolicitarNuevo;
-  final VoidCallback onContinuar;
-  const _AfiliadoExistenteScreen({
-    required this.bank,
-    required this.onSolicitarNuevo,
-    required this.onContinuar,
-  });
+  const _AfiliadoExistenteScreen({required this.docId, required this.bank});
 
   static const _panelColor = Color(0xFFAED6D8);
 
@@ -773,8 +761,15 @@ class _AfiliadoExistenteScreen extends StatelessWidget {
                           width: double.infinity,
                           height: 48,
                           child: ElevatedButton.icon(
-                            onPressed: onSolicitarNuevo,
-                            icon: const Icon(Icons.add),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => _GestionAfiliadoScreen(docId: docId),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.swap_horiz),
                             label: const Text('Solicitar un afiliado nuevo'),
                           ),
                         ),
@@ -783,7 +778,12 @@ class _AfiliadoExistenteScreen extends StatelessWidget {
                           width: double.infinity,
                           height: 48,
                           child: ElevatedButton.icon(
-                            onPressed: onContinuar,
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => _ClienteDetalleScreen(docId: docId)),
+                              );
+                            },
                             icon: const Icon(Icons.arrow_forward),
                             label: const Text('Continuar con su afiliado existente'),
                           ),
@@ -962,7 +962,7 @@ class _GestionAfiliadoScreenState extends State<_GestionAfiliadoScreen> {
             constraints: const BoxConstraints(maxWidth: 700),
             child: Column(
               children: [
-// Header
+                // Header
                 Container(
                   decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
@@ -985,7 +985,7 @@ class _GestionAfiliadoScreenState extends State<_GestionAfiliadoScreen> {
                 ),
                 Container(height: 8, color: Colors.white),
 
-// Contenido
+                // Contenido
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -1153,13 +1153,13 @@ class _PreVentaScreenState extends State<_PreVentaScreen> {
   /// Registra la pre-venta y **auto-aprueba** la afiliación:
   /// - Crea doc en `pre_ventas` (estado: 'aprobada_por_preventa')
   /// - Actualiza `Cliente_completo/{docId}`: afiliado=true, bank (si no hay)='Afiliación por pre-venta',
-  /// setea preventa_* y updated_at
+  ///   setea preventa_* y updated_at
   /// - Navega directo a pantalla OK con opciones: Volver a Ventas / Proceder a equipos disponibles
   Future<void> _registrarPreventa() async {
     if (_cliente == null) return;
     setState(() => _saving = true);
     try {
-// 1) Crear la preventa como aprobada
+      // 1) Crear la preventa como aprobada
       final newDoc = await FirebaseFirestore.instance.collection('pre_ventas').add({
         'cliente_id': widget.docId,
         'rif': _cliente?['rif'],
@@ -1171,7 +1171,7 @@ class _PreVentaScreenState extends State<_PreVentaScreen> {
         'created_by': FirebaseAuth.instance.currentUser?.uid,
       });
 
-// 2) Marcar el cliente como afiliado (si no lo está) y guardar vínculo con preventa
+      // 2) Marcar el cliente como afiliado (si no lo está) y guardar vínculo con preventa
       final currentBank = (_cliente?['bank'] as String?)?.trim();
       await FirebaseFirestore.instance
           .collection('Cliente_completo')
@@ -1413,9 +1413,8 @@ class _ClienteDetalleScreen extends StatelessWidget {
                   color: _panelColor,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Center(
-                  child: Text('Pantalla de detalle (vacía)\nDocId: $docId',
-                      textAlign: TextAlign.center),
+                child: const Center(
+                  child: Text('Pantalla de detalle (vacía)'),
                 ),
               ),
             ),
@@ -1447,6 +1446,7 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
+
 
 
 
