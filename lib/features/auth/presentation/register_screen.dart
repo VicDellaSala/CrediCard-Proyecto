@@ -13,20 +13,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static const _panelColor = Color(0xFFAED6D8);
 
   final _formKey = GlobalKey<FormState>();
-
-  final _nameCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
 
-  bool _obscure = true;
-  bool _obscureConfirm = true;
   bool _loading = false;
+  bool _obscure = true;
+  bool _obscure2 = true;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
@@ -34,114 +33,120 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  bool _isCredicardEmail(String email) =>
-      email.toLowerCase().trim().endsWith('@credicard.com.ve');
-
-  bool _isFirstIdentityAdmin(String email) =>
-      email.toLowerCase().trim() == 'identidad@credicard.com.ve';
-
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _loading = true);
     try {
-      final firstName = _nameCtrl.text.trim();
-      final lastName = _lastNameCtrl.text.trim();
-      final email = _emailCtrl.text.trim();
-      final pass = _passCtrl.text.trim();
+      final email = _emailCtrl.text.trim().toLowerCase();
+      final first = _firstNameCtrl.text.trim();
+      final last = _lastNameCtrl.text.trim();
+      final fullName = '$first $last';
 
-// 1) Crear cuenta en Auth
+// 1) Crear usuario en Firebase Auth
       final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
-        password: pass,
+        password: _passCtrl.text.trim(),
       );
       final uid = cred.user!.uid;
 
-// 2) Determinar rol y estado inicial
-      String role;
-      String status;
-      bool companyUser = _isCredicardEmail(email);
-
-      if (_isFirstIdentityAdmin(email)) {
-        role = 'admin_identidades';
-        status = 'aprobado';
-      } else if (companyUser) {
-        role = 'pendiente';
-        status = 'pendiente';
-      } else {
-        role = 'cliente';
-        status = 'aprobado';
-      }
-
-// 3) Guardar perfil en Firestore
-      final users = FirebaseFirestore.instance.collection('users');
-      await users.doc(uid).set({
-        'firstName': firstName,
-        'lastName': lastName,
-        'fullName': '$firstName $lastName',
+// 2) Guardar datos básicos en Firestore
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'first_name': first,
+        'last_name': last,
+        'name': fullName,
         'email': email,
-        'role': role,
-        'status': status,
-        'companyUser': companyUser,
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
-// 4) Crear solicitud si es corporativo (y no el primer admin)
-      if (companyUser && !_isFirstIdentityAdmin(email)) {
+// 3) Lógica de roles y solicitudes
+      const bankDomains = [
+        'bancodevenezuela.com',
+        'bancodevenezuela.com.ve',
+        'bancamiga.com',
+        'bancaribe.com.ve',
+        'bdt.gob.ve', // Banco del Tesoro
+        'bancrecer.com',
+        'mibanco.com.ve',
+        'banfanb.fin.ve', // Ajustar dominio real
+        'bancoactivo.com.ve',
+      ];
+
+      String roleToSet = 'cliente';
+      String? domain;
+      final at = email.indexOf('@');
+      if (at != -1) domain = email.substring(at + 1);
+
+      if (email == 'identidad@credicard.com.ve') {
+// Semilla: primer admin de identidades
+        roleToSet = 'admin_identidades';
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'role': roleToSet,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } else if (domain != null && bankDomains.contains(domain)) {
+// 👉 Rol Banco (solicitud)
         await FirebaseFirestore.instance.collection('role_requests').add({
-          'userId': uid,
+          'uid': uid,
           'email': email,
-          'fullName': '$firstName $lastName',
-          'requestedAt': FieldValue.serverTimestamp(),
-          'status': 'pendiente',
+          'name': fullName,
+          'domain': domain,
+          'request_type': 'bank',
+          'createdAt': FieldValue.serverTimestamp(),
         });
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'role': 'pending_bank',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } else if (email.endsWith('@credicard.com.ve')) {
+// 👉 Rol Credicard (supervisor, operador o admin de identidades)
+        await FirebaseFirestore.instance.collection('role_requests').add({
+          'uid': uid,
+          'email': email,
+          'name': fullName,
+          'request_type': 'credicard',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'role': 'pending',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } else {
+// 👉 Cliente normal
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'role': roleToSet,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            companyUser && !_isFirstIdentityAdmin(email)
-                ? 'Registro enviado. Un administrador asignará tu rol.'
-                : 'Registro exitoso.',
-          ),
-        ),
+        const SnackBar(content: Text('Registro exitoso')),
       );
-
       Navigator.pushReplacementNamed(context, '/login');
     } on FirebaseAuthException catch (e) {
       final map = {
         'email-already-in-use': 'El correo ya está registrado.',
         'invalid-email': 'Correo inválido.',
         'weak-password': 'La contraseña es muy débil (mín. 6).',
-        'operation-not-allowed': 'Método de inicio de sesión deshabilitado.',
+        'operation-not-allowed': 'Método deshabilitado en Auth.',
         'network-request-failed': 'Fallo de red. Verifica tu conexión.',
       };
       final msg = map[e.code] ?? (e.message ?? 'Error de autenticación');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $msg')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $msg')),
+        );
       }
     } on FirebaseException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error guardando datos: ${e.message ?? e.code}')),
+          SnackBar(content: Text('Error Firestore: ${e.message ?? e.code}')),
         );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Error inesperado')));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  String? _emailValidator(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Ingresa tu email';
-    if (!v.contains('@') || !v.contains('.')) return 'Email inválido';
-    return null;
   }
 
   @override
@@ -157,7 +162,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-// Header
+// HEADER azul con botón volver
                   Container(
                     decoration: BoxDecoration(
                       color: _panelColor,
@@ -166,10 +171,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
                     child: Row(
                       children: [
-                        IconButton(
+                        TextButton.icon(
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.arrow_back, color: Colors.black87),
-                          tooltip: 'Volver',
+                          label: const Text('Volver', style: TextStyle(color: Colors.black87)),
                         ),
                         const Spacer(),
                         const Text(
@@ -190,6 +195,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
 
+// Banda blanca
                   Container(
                     width: double.infinity,
                     color: Colors.white,
@@ -197,7 +203,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: const SizedBox.shrink(),
                   ),
 
-// Formulario
+// Panel celeste con el formulario
                   Expanded(
                     child: Container(
                       width: double.infinity,
@@ -208,7 +214,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       margin: const EdgeInsets.only(top: 8),
                       child: Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 540),
+                          constraints: const BoxConstraints(maxWidth: 480),
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.all(16),
                             child: Container(
@@ -220,100 +226,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               child: Form(
                                 key: _formKey,
                                 child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextFormField(
-                                            controller: _nameCtrl,
-                                            decoration: const InputDecoration(labelText: 'Nombre'),
-                                            validator: (v) => (v == null || v.trim().isEmpty)
-                                                ? 'Ingresa tu nombre'
-                                                : null,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: TextFormField(
-                                            controller: _lastNameCtrl,
-                                            decoration: const InputDecoration(labelText: 'Apellidos'),
-                                            validator: (v) => (v == null || v.trim().isEmpty)
-                                                ? 'Ingresa tus apellidos'
-                                                : null,
-                                          ),
-                                        ),
-                                      ],
+                                    TextFormField(
+                                      controller: _firstNameCtrl,
+                                      decoration: const InputDecoration(labelText: 'Nombre'),
+                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa tu nombre' : null,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _lastNameCtrl,
+                                      decoration: const InputDecoration(labelText: 'Apellidos'),
+                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa tus apellidos' : null,
                                     ),
                                     const SizedBox(height: 12),
                                     TextFormField(
                                       controller: _emailCtrl,
-                                      decoration: const InputDecoration(labelText: 'Correo electrónico'),
+                                      decoration: const InputDecoration(labelText: 'Correo'),
                                       keyboardType: TextInputType.emailAddress,
-                                      validator: _emailValidator,
+                                      validator: (v) {
+                                        if (v == null || v.trim().isEmpty) return 'Ingresa tu correo';
+                                        if (!v.contains('@') || !v.contains('.')) return 'Correo inválido';
+                                        return null;
+                                      },
                                     ),
                                     const SizedBox(height: 12),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextFormField(
-                                            controller: _passCtrl,
-                                            decoration: InputDecoration(
-                                              labelText: 'Contraseña',
-                                              suffixIcon: IconButton(
-                                                onPressed: () => setState(() => _obscure = !_obscure),
-                                                icon: Icon(_obscure
-                                                    ? Icons.visibility
-                                                    : Icons.visibility_off),
-                                              ),
-                                            ),
-                                            obscureText: _obscure,
-                                            validator: (v) => (v == null || v.length < 6)
-                                                ? 'Mínimo 6 caracteres'
-                                                : null,
-                                          ),
+                                    TextFormField(
+                                      controller: _passCtrl,
+                                      decoration: InputDecoration(
+                                        labelText: 'Contraseña',
+                                        suffixIcon: IconButton(
+                                          onPressed: () => setState(() => _obscure = !_obscure),
+                                          icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: TextFormField(
-                                            controller: _confirmCtrl,
-                                            decoration: InputDecoration(
-                                              labelText: 'Confirmar contraseña',
-                                              suffixIcon: IconButton(
-                                                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                                                icon: Icon(_obscureConfirm
-                                                    ? Icons.visibility
-                                                    : Icons.visibility_off),
-                                              ),
-                                            ),
-                                            obscureText: _obscureConfirm,
-                                            validator: (v) => (v != _passCtrl.text)
-                                                ? 'Las contraseñas no coinciden'
-                                                : null,
-                                          ),
+                                      ),
+                                      obscureText: _obscure,
+                                      validator: (v) => (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _confirmCtrl,
+                                      decoration: InputDecoration(
+                                        labelText: 'Confirmar contraseña',
+                                        suffixIcon: IconButton(
+                                          onPressed: () => setState(() => _obscure2 = !_obscure2),
+                                          icon: Icon(_obscure2 ? Icons.visibility : Icons.visibility_off),
                                         ),
-                                      ],
+                                      ),
+                                      obscureText: _obscure2,
+                                      validator: (v) {
+                                        if (v == null || v.isEmpty) return 'Confirma tu contraseña';
+                                        if (v != _passCtrl.text) return 'Las contraseñas no coinciden';
+                                        return null;
+                                      },
                                     ),
                                     const SizedBox(height: 20),
                                     SizedBox(
-                                      height: 48,
                                       width: double.infinity,
+                                      height: 48,
                                       child: ElevatedButton(
                                         onPressed: _loading ? null : _register,
                                         child: _loading
                                             ? const CircularProgressIndicator(color: Colors.white)
                                             : const Text('Crear cuenta'),
                                       ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Text('¿Ya tienes cuenta?'),
-                                        TextButton(
-                                          onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                                          child: const Text('Inicia sesión'),
-                                        ),
-                                      ],
                                     ),
                                   ],
                                 ),

@@ -754,7 +754,7 @@ class _AfiliadoExistenteScreen extends StatelessWidget {
                         const Icon(Icons.verified, size: 64, color: Colors.green),
                         const SizedBox(height: 16),
                         Text(
-                          'El cliente es afiliado y pertenece a:\\n$bank',
+                          'El cliente es afiliado y pertenece a:\n$bank',
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                         ),
@@ -1511,7 +1511,7 @@ class _ConfirmarAfiliadoExistenteScreen extends StatelessWidget {
                       children: [
                         const Icon(Icons.account_balance, size: 64),
                         const SizedBox(height: 16),
-                        Text('Banco afiliado actual:\\n$bank',
+                        Text('Banco afiliado actual:\n$bank',
                             textAlign: TextAlign.center,
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 24),
@@ -1653,6 +1653,16 @@ class _TerminalNoDisponibleScreen extends StatelessWidget {
                           label: const Text('Registrar terminal adicional'),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/operator/ventas',
+                              (route) => false,
+                        ),
+                        child: const Text('Volver al menú principal'),
+                      ),
+
                     ],
                   ),
                 ),
@@ -1709,6 +1719,15 @@ class _TerminalDisponibleScreen extends StatelessWidget {
                           label: const Text('Registrar terminal adicional'),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/operator/ventas',
+                              (route) => false,
+                        ),
+                        child: const Text('Volver al menú principal'),
+                      ),
                     ],
                   ),
                 ),
@@ -1720,6 +1739,12 @@ class _TerminalDisponibleScreen extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
 
 
 
