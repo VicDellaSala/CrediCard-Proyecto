@@ -31,7 +31,7 @@ class VentasEquiposScreen extends StatelessWidget {
                           Icon(Icons.inventory_2, color: Colors.white, size: 28),
                           SizedBox(width: 8),
                           Text(
-                            'Modelos de equipos disponibles para venta',
+                            'Modelos de equipos disponibles a la venta',
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w600,
@@ -70,3 +70,4 @@ class VentasEquiposScreen extends StatelessWidget {
     );
   }
 }
+

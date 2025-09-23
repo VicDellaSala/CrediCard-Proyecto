@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'ventas_equipos.dart';
 
 class VentasScreen extends StatelessWidget {
   const VentasScreen({super.key});
@@ -705,6 +706,7 @@ class _DebtWarnScreen extends StatelessWidget {
 }
 
 // ======== FLUJO DE AFILIADO =================================================
+
 class _AfiliadoExistenteScreen extends StatelessWidget {
   final String docId;
   final String bank;
@@ -752,7 +754,7 @@ class _AfiliadoExistenteScreen extends StatelessWidget {
                         const Icon(Icons.verified, size: 64, color: Colors.green),
                         const SizedBox(height: 16),
                         Text(
-                          'El cliente es afiliado y pertenece a:\n$bank',
+                          'El cliente es afiliado y pertenece a:\\n$bank',
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                         ),
@@ -764,9 +766,7 @@ class _AfiliadoExistenteScreen extends StatelessWidget {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (_) => _GestionAfiliadoScreen(docId: docId),
-                                ),
+                                MaterialPageRoute(builder: (_) => _GestionAfiliadoScreen(docId: docId)),
                               );
                             },
                             icon: const Icon(Icons.swap_horiz),
@@ -779,9 +779,9 @@ class _AfiliadoExistenteScreen extends StatelessWidget {
                           height: 48,
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              Navigator.pushReplacement(
+                              Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => _ClienteDetalleScreen(docId: docId)),
+                                MaterialPageRoute(builder: (_) => _ConfirmarAfiliadoExistenteScreen(docId: docId, bank: bank)),
                               );
                             },
                             icon: const Icon(Icons.arrow_forward),
@@ -800,7 +800,6 @@ class _AfiliadoExistenteScreen extends StatelessWidget {
     );
   }
 }
-
 class _AfiliadoPendienteScreen extends StatelessWidget {
   final String docId;
   const _AfiliadoPendienteScreen({required this.docId});
@@ -920,12 +919,35 @@ class _GestionAfiliadoScreenState extends State<_GestionAfiliadoScreen> {
 
   Future<void> _aceptar() async {
     if (_selectedBank == null || _selectedBank!.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Selecciona un banco')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecciona un banco')));
       return;
     }
     setState(() => _saving = true);
     try {
+      // Validar banco actual para evitar seleccionar el mismo
+      final snap = await FirebaseFirestore.instance
+          .collection('Cliente_completo')
+          .doc(widget.docId)
+          .get();
+      final currentBank = (snap.data()?['bank'] as String?)?.trim();
+
+      if ((currentBank ?? '').toLowerCase() == _selectedBank!.toLowerCase()) {
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Afiliado'),
+              content: Text('El cliente ya se encuentra afiliado al banco: "${currentBank ?? '-'}".'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido')),
+              ],
+            ),
+          );
+        }
+        if (mounted) setState(() => _saving = false);
+        return;
+      }
+
       await FirebaseFirestore.instance
           .collection('Cliente_completo')
           .doc(widget.docId)
@@ -938,14 +960,11 @@ class _GestionAfiliadoScreenState extends State<_GestionAfiliadoScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const _AfiliadoOkScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const _AfiliadoOkScreen()),
       );
     } on FirebaseException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1101,8 +1120,7 @@ class _AfiliadoOkScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
-                            onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                                context, '/operator/almacen/solicitar', (_) => false),
+                            onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const VentasEquiposScreen())),
                             icon: const Icon(Icons.inventory_2),
                             label: const Text('Proceder a equipos disponibles'),
                           ),
@@ -1344,8 +1362,7 @@ class _PreVentaOkScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
-                            onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                                context, '/operator/almacen/solicitar', (_) => false),
+                            onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const VentasEquiposScreen())),
                             icon: const Icon(Icons.inventory_2),
                             label: const Text('Proceder a equipos disponibles'),
                           ),
@@ -1446,6 +1463,264 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
+
+
+class _ConfirmarAfiliadoExistenteScreen extends StatelessWidget {
+  final String docId;
+  final String bank;
+  const _ConfirmarAfiliadoExistenteScreen({required this.docId, required this.bank});
+
+  static const _panelColor = Color(0xFFAED6D8);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F2),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                  child: Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                        label: const Text('Regresar', style: TextStyle(color: Colors.black87, fontSize: 16)),
+                      ),
+                      const Spacer(),
+                      const Text(
+                        'Confirmar afiliado',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
+                      ),
+                      const Spacer(),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                ),
+                Container(height: 8, color: Colors.white),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.account_balance, size: 64),
+                        const SizedBox(height: 16),
+                        Text('Banco afiliado actual:\\n$bank',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Regresar'))),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => _TerminalMenuScreen(docId: docId)));
+                                },
+                                child: const Text('Confirmar'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TerminalMenuScreen extends StatelessWidget {
+  final String docId;
+  const _TerminalMenuScreen({required this.docId});
+
+  static const _panelColor = Color(0xFFAED6D8);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F2),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                  child: const Row(
+                    children: [
+                      Spacer(),
+                      Text('Terminales', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white)),
+                      Spacer(),
+                      SizedBox(width: 48),
+                    ],
+                  ),
+                ),
+                Container(height: 8, color: Colors.white),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _TerminalNoDisponibleScreen())),
+                            icon: const Icon(Icons.device_unknown),
+                            label: const Text('Sin terminal disponible'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _TerminalDisponibleScreen())),
+                            icon: const Icon(Icons.point_of_sale),
+                            label: const Text('Con terminal disponible'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TerminalNoDisponibleScreen extends StatelessWidget {
+  const _TerminalNoDisponibleScreen();
+
+  static const _panelColor = Color(0xFFAED6D8);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F2),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+              child: const Row(
+                children: [
+                  Spacer(),
+                  Text('Terminal no disponible', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white)),
+                  Spacer(),
+                  SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Container(height: 8, color: Colors.white),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.info_outline, size: 64),
+                      const SizedBox(height: 12),
+                      const Text('El cliente está pendiente por creación de terminal.', textAlign: TextAlign.center),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VentasEquiposScreen())),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Registrar terminal adicional'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TerminalDisponibleScreen extends StatelessWidget {
+  const _TerminalDisponibleScreen();
+
+  static const _panelColor = Color(0xFFAED6D8);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F2),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+              child: const Row(
+                children: [
+                  Spacer(),
+                  Text('Terminal disponible', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white)),
+                  Spacer(),
+                  SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Container(height: 8, color: Colors.white),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.point_of_sale, size: 64, color: Colors.green),
+                      const SizedBox(height: 12),
+                      const Text('Terminal actual: (pendiente de implementar).', textAlign: TextAlign.center),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VentasEquiposScreen())),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Registrar terminal adicional'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 
 

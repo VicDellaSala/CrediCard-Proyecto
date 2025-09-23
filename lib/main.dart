@@ -32,6 +32,7 @@ import 'features/operator/almacen/presentation/traslado_almacen_screen.dart';
 // Supervisor & Usuario
 import 'features/supervisor/presentation/supervisor_home_screen.dart';
 import 'features/user/presentation/user_home_screen.dart';
+import 'features/operator/ventas/presentation/ventas_equipos.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,7 +81,8 @@ class MyApp extends StatelessWidget {
         '/operator/almacen/autorizaciones': (context) => const AutorizacionSolicitudesScreen(),
         '/operator/almacen/entrega': (context) => const EntregaEquipoSimcardScreen(),
         '/operator/almacen/traslado': (context) => const TrasladoAlmacenScreen(),
-      },
+
+        '/ventas/equipos': (context) => const VentasEquiposScreen(),},
     );
   }
 }
