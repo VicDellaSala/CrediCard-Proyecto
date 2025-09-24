@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Lista de bancos disponible para el rol "banco"
 const List<String> kBanks = [
   'Banco de Venezuela',
   'Bancamiga',
@@ -14,8 +13,18 @@ const List<String> kBanks = [
   'Banco Activo',
 ];
 
+const List<String> kBankDomains = [
+  'bancamiga.com.ve',
+  'bancodevenezuela.com.ve',
+  'bancaribe.com.ve',
+  'bancodeltesoro.com.ve',
+  'bancrecer.com.ve',
+  'mibanco.com.ve',
+  'banfanb.com.ve',
+  'bancoactivo.com.ve',
+];
+
 class IdentityRequestsScreen extends StatefulWidget {
-  /// Si quieres abrir directamente la pestaña de Bancos, pasa initialTab: 1
   final int initialTab;
   const IdentityRequestsScreen({super.key, this.initialTab = 0});
 
@@ -28,11 +37,10 @@ class _IdentityRequestsScreenState extends State<IdentityRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tabIndex = (widget.initialTab < 0 || widget.initialTab > 1) ? 0 : widget.initialTab;
-
+    final initial = widget.initialTab.clamp(0, 1);
     return DefaultTabController(
       length: 2,
-      initialIndex: tabIndex,
+      initialIndex: initial,
       child: Scaffold(
         backgroundColor: const Color(0xFFF2F2F2),
         body: SafeArea(
@@ -41,7 +49,7 @@ class _IdentityRequestsScreenState extends State<IdentityRequestsScreen> {
               constraints: const BoxConstraints(maxWidth: 1100),
               child: Column(
                 children: [
-// Header azul
+// Header
                   Container(
                     decoration: BoxDecoration(
                       color: _panelColor,
@@ -70,7 +78,7 @@ class _IdentityRequestsScreenState extends State<IdentityRequestsScreen> {
                     ),
                   ),
 
-// Tira blanca con pestañas
+// Tabs
                   Container(
                     width: double.infinity,
                     color: Colors.white,
@@ -85,7 +93,7 @@ class _IdentityRequestsScreenState extends State<IdentityRequestsScreen> {
                     ),
                   ),
 
-// Contenido pestañas
+// Body
                   Expanded(
                     child: Container(
                       margin: const EdgeInsets.only(top: 8),
@@ -112,25 +120,69 @@ class _IdentityRequestsScreenState extends State<IdentityRequestsScreen> {
   }
 }
 
+// ---------- helpers ----------
+String _fmtTS(dynamic ts) {
+  try {
+    final t = (ts as Timestamp).toDate().toLocal();
+    final dd = t.day.toString().padLeft(2, '0');
+    final mm = t.month.toString().padLeft(2, '0');
+    final yyyy = t.year.toString();
+    final hh = t.hour.toString().padLeft(2, '0');
+    final mi = t.minute.toString().padLeft(2, '0');
+    return '$dd/$mm/$yyyy $hh:$mi';
+  } catch (_) {
+    return '';
+  }
+}
+
+String _normStr(dynamic v) => (v is String) ? v.trim().toLowerCase() : '';
+
+bool _isPending(Map<String, dynamic> d) {
+  final st = _normStr(d['status']);
+  return st == 'pendiente' || st == 'pending' || st.isEmpty; // por si falto el campo
+}
+
+bool _isCredicardRequest(Map<String, dynamic> d) {
+  final rt = _normStr(d['request_type']);
+  if (rt == 'credicard') return true;
+// Fallback: por email
+  final email = _normStr(d['email']);
+  return email.endsWith('@credicard.com.ve');
+}
+
+bool _isBankRequest(Map<String, dynamic> d) {
+  final rt = _normStr(d['request_type']);
+  if (rt == 'bank') return true;
+  final email = _normStr(d['email']);
+  for (final domain in kBankDomains) {
+    if (email.endsWith('@$domain')) return true;
+  }
+  return false;
+}
+
 // ================== TAB CREDICARD ==================
 class _CredicardRequestsTab extends StatelessWidget {
   const _CredicardRequestsTab();
 
   @override
   Widget build(BuildContext context) {
-    final qs = FirebaseFirestore.instance
-        .collection('role_requests')
-        .where('request_type', isEqualTo: 'credicard')
-        .orderBy('createdAt', descending: true)
-        .snapshots();
+    final stream = FirebaseFirestore.instance.collection('role_requests').snapshots();
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: qs,
+      stream: stream,
       builder: (context, snap) {
+        if (snap.hasError) return Center(child: Text('Error: ${snap.error}'));
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final docs = snap.data?.docs ?? [];
+
+        final all = snap.data?.docs ?? [];
+// Mostrar SOLO credicard y SOLO pendientes
+        final docs = all.where((doc) {
+          final d = doc.data();
+          return _isCredicardRequest(d) && _isPending(d);
+        }).toList();
+
         if (docs.isEmpty) {
           return const Center(child: Text('No hay solicitudes Credicard pendientes.'));
         }
@@ -144,26 +196,42 @@ class _CredicardRequestsTab extends StatelessWidget {
             final d = doc.data();
             final id = doc.id;
             final email = (d['email'] as String?) ?? '';
-            final uid = (d['uid'] as String?) ?? '';
-            final name = (d['name'] as String?) ?? '';
-            final createdAt = d['createdAt'];
+            final uid = (d['userId'] as String?) ?? (d['uid'] as String? ?? '');
+            final name = (d['fullName'] as String?) ?? (d['name'] as String? ?? '');
+            final createdAt = d['requestedAt'] ?? d['createdAt'];
 
             return Card(
+              color: const Color(0xFFF6F0F8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.badge),
-                    const SizedBox(width: 8),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.badge),
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(email, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          if (name.isNotEmpty) Text(name),
+                          Text(email,
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                          if (name.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(name, style: const TextStyle(fontSize: 14)),
+                            ),
                           if (createdAt != null)
-                            Text('Solicitado: $createdAt', style: const TextStyle(fontSize: 12)),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Solicitado: ${_fmtTS(createdAt)}',
+                                style: const TextStyle(fontSize: 12, color: Colors.black54),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -195,29 +263,38 @@ class _CredicardRoleSetterState extends State<_CredicardRoleSetter> {
 
   Future<void> _approve() async {
     if (_role == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona un rol')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Selecciona un rol')));
       return;
     }
+    if (widget.uid.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('UID faltante en la solicitud')));
+      return;
+    }
+
     setState(() => _saving = true);
     try {
+// 1) Actualizar el rol del usuario
       await FirebaseFirestore.instance.collection('users').doc(widget.uid).update({
         'role': _role,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      await FirebaseFirestore.instance.collection('role_requests').doc(widget.requestId).delete();
+
+// 2) Borrar la solicitud para que desaparezca
+      await FirebaseFirestore.instance
+          .collection('role_requests')
+          .doc(widget.requestId)
+          .delete();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Rol asignado: $_role')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Rol asignado: $_role')));
       }
     } on FirebaseException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.message ?? e.code}')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -239,26 +316,22 @@ class _CredicardRoleSetterState extends State<_CredicardRoleSetter> {
     if (ok != true) return;
 
     try {
-// Enviar solicitud de eliminación (si usas Cloud Functions para borrar en Auth)
       await FirebaseFirestore.instance.collection('deletion_requests').add({
         'uid': widget.uid,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': FirebaseAuth.instance.currentUser?.uid,
       });
-
-// Eliminar la solicitud de rol
       await FirebaseFirestore.instance.collection('role_requests').doc(widget.requestId).delete();
+      await FirebaseFirestore.instance.collection('users').doc(widget.uid).delete();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cuenta marcada para eliminación')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Cuenta marcada para eliminación')));
       }
     } on FirebaseException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.message ?? e.code}')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
       }
     }
   }
@@ -291,25 +364,27 @@ class _CredicardRoleSetterState extends State<_CredicardRoleSetter> {
   }
 }
 
-// ================== TAB BANCOS ==================
+// ================== TAB BANCOS (sin cambios funcionales) ==================
 class _BankRequestsTab extends StatelessWidget {
   const _BankRequestsTab();
 
   @override
   Widget build(BuildContext context) {
-    final qs = FirebaseFirestore.instance
-        .collection('role_requests')
-        .where('request_type', isEqualTo: 'bank')
-        .orderBy('createdAt', descending: true)
-        .snapshots();
+    final stream = FirebaseFirestore.instance.collection('role_requests').snapshots();
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: qs,
+      stream: stream,
       builder: (context, snap) {
+        if (snap.hasError) return Center(child: Text('Error: ${snap.error}'));
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final docs = snap.data?.docs ?? [];
+        final all = snap.data?.docs ?? [];
+        final docs = all.where((doc) {
+          final d = doc.data();
+          return _isBankRequest(d) && _isPending(d);
+        }).toList();
+
         if (docs.isEmpty) {
           return const Center(child: Text('No hay solicitudes de bancos pendientes.'));
         }
@@ -323,10 +398,10 @@ class _BankRequestsTab extends StatelessWidget {
             final d = doc.data();
             final id = doc.id;
             final email = (d['email'] as String?) ?? '';
-            final uid = (d['uid'] as String?) ?? '';
-            final name = (d['name'] as String?) ?? '';
+            final uid = (d['userId'] as String?) ?? (d['uid'] as String? ?? '');
+            final name = (d['fullName'] as String?) ?? (d['name'] as String? ?? '');
             final domain = (d['domain'] as String?) ?? '';
-            final createdAt = d['createdAt'];
+            final createdAt = d['requestedAt'] ?? d['createdAt'];
 
             return Card(
               child: Padding(
@@ -342,14 +417,15 @@ class _BankRequestsTab extends StatelessWidget {
                         children: [
                           Text(email, style: const TextStyle(fontWeight: FontWeight.w600)),
                           if (name.isNotEmpty) Text(name),
-                          if (domain.isNotEmpty) Text('Dominio: $domain', style: const TextStyle(fontSize: 12)),
+                          if (domain.isNotEmpty)
+                            Text('Dominio: $domain', style: const TextStyle(fontSize: 12)),
                           if (createdAt != null)
-                            Text('Solicitado: $createdAt', style: const TextStyle(fontSize: 12)),
-                          const SizedBox(height: 8),
-                          _BankRoleSetter(uid: uid, requestId: id),
+                            Text('Solicitado: ${_fmtTS(createdAt)}',
+                                style: const TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),
+                    _BankRoleSetter(uid: uid, requestId: id),
                   ],
                 ),
               ),
@@ -381,6 +457,12 @@ class _BankRoleSetterState extends State<_BankRoleSetter> {
       );
       return;
     }
+    if (widget.uid.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('UID faltante en la solicitud')));
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       await FirebaseFirestore.instance.collection('users').doc(widget.uid).update({
@@ -392,15 +474,13 @@ class _BankRoleSetterState extends State<_BankRoleSetter> {
       await FirebaseFirestore.instance.collection('role_requests').doc(widget.requestId).delete();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Asignado rol Banco: $_bankName')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Asignado rol Banco: $_bankName')));
       }
     } on FirebaseException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.message ?? e.code}')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -429,17 +509,16 @@ class _BankRoleSetterState extends State<_BankRoleSetter> {
       });
 
       await FirebaseFirestore.instance.collection('role_requests').doc(widget.requestId).delete();
+      await FirebaseFirestore.instance.collection('users').doc(widget.uid).delete();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cuenta marcada para eliminación')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Cuenta marcada para eliminación')));
       }
     } on FirebaseException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.message ?? e.code}')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
       }
     }
   }

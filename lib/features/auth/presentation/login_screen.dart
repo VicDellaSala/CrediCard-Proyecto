@@ -36,37 +36,40 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passCtrl.text.trim(),
       );
 
-// 2) Leer datos del usuario en Firestore (colección 'users')
+// 2) Leer datos del usuario en Firestore
       final uid = cred.user!.uid;
-      final snap =
-      await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
 
-      final data = snap.data();
-      final role = (data?['role'] as String?)?.toLowerCase() ?? 'usuario';
-      final disabled = (data?['disabled'] as bool?) ?? false;
-      final status = (data?['status'] as String?) ?? 'activo';
+      final role = (snap.data()?['role'] as String?)?.toLowerCase() ?? 'cliente';
 
       if (!mounted) return;
 
-      if (disabled || status == 'eliminado') {
+// 🔹 Bloqueo de cuentas pendientes
+      if (role == 'pending' || role == 'pending_bank') {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tu cuenta ha sido deshabilitada.')),
+          const SnackBar(
+            content: Text(
+              'Tu cuenta está pendiente de aprobación por el Administrador de Identidades.',
+            ),
+          ),
         );
         await FirebaseAuth.instance.signOut();
         return;
       }
 
 // 3) Redirigir según rol
-      String target;
-      switch (role) {
-        case 'admin_identidades':
-          target = '/admin';
-          break;
-        case 'operador':
-          target = '/operator';
-          break;
-        default:
-          target = '/home'; // clientes, supervisores u otros
+      late String target;
+      if (role == 'admin_identidades') {
+        target = '/admin';
+      } else if (role == 'operador') {
+        target = '/operator';
+      } else if (role == 'supervisor') {
+        target = '/supervisor';
+      } else {
+        target = '/home'; // cliente por defecto
       }
 
       Navigator.pushReplacementNamed(context, target);
@@ -80,22 +83,18 @@ class _LoginScreenState extends State<LoginScreen> {
       };
       final msg = map[e.code] ?? (e.message ?? 'Error de autenticación');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $msg')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $msg')));
       }
     } on FirebaseException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-              Text('Error con Firestore: ${e.message ?? e.code}')),
+          SnackBar(content: Text('Error con Firestore: ${e.message ?? e.code}')),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Error inesperado al iniciar sesión')),
+          const SnackBar(content: Text('Error inesperado al iniciar sesión')),
         );
       }
     } finally {
@@ -139,20 +138,18 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-// Header azulito
+// Header
                   Container(
                     decoration: BoxDecoration(
                       color: _panelColor,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
                     child: Row(
                       children: [
                         IconButton(
                           onPressed: () => Navigator.pop(context),
-                          icon:
-                          const Icon(Icons.arrow_back, color: Colors.black87),
+                          icon: const Icon(Icons.arrow_back, color: Colors.black87),
                           tooltip: 'Volver',
                         ),
                         const Spacer(),
@@ -164,10 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Colors.white,
                             letterSpacing: 0.5,
                             shadows: [
-                              Shadow(
-                                  blurRadius: 2,
-                                  color: Colors.black26,
-                                  offset: Offset(0, 1)),
+                              Shadow(blurRadius: 2, color: Colors.black26, offset: Offset(0, 1)),
                             ],
                           ),
                         ),
@@ -185,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const SizedBox.shrink(),
                   ),
 
-// Panel de login
+// Form
                   Expanded(
                     child: Container(
                       width: double.infinity,
@@ -212,14 +206,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                   children: [
                                     TextFormField(
                                       controller: _emailCtrl,
-                                      decoration: const InputDecoration(
-                                          labelText: 'Email'),
-                                      keyboardType:
-                                      TextInputType.emailAddress,
-                                      validator: (v) => (v == null ||
-                                          !v.contains('@'))
-                                          ? 'Email inválido'
-                                          : null,
+                                      decoration: const InputDecoration(labelText: 'Email'),
+                                      keyboardType: TextInputType.emailAddress,
+                                      validator: (v) =>
+                                      (v == null || !v.contains('@')) ? 'Email inválido' : null,
                                     ),
                                     const SizedBox(height: 12),
                                     TextFormField(
@@ -227,29 +217,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                       decoration: InputDecoration(
                                         labelText: 'Contraseña',
                                         suffixIcon: IconButton(
-                                          onPressed: () => setState(
-                                                  () => _obscure = !_obscure),
-                                          icon: Icon(_obscure
-                                              ? Icons.visibility
-                                              : Icons.visibility_off),
+                                          onPressed: () => setState(() => _obscure = !_obscure),
+                                          icon: Icon(
+                                            _obscure ? Icons.visibility : Icons.visibility_off,
+                                          ),
                                         ),
                                       ),
                                       obscureText: _obscure,
-                                      validator: (v) => (v == null ||
-                                          v.isEmpty)
-                                          ? 'Ingresa tu contraseña'
-                                          : null,
+                                      validator: (v) =>
+                                      (v == null || v.isEmpty) ? 'Ingresa tu contraseña' : null,
                                     ),
                                     const SizedBox(height: 20),
                                     SizedBox(
                                       width: double.infinity,
                                       height: 48,
                                       child: ElevatedButton(
-                                        onPressed:
-                                        _loading ? null : _login,
+                                        onPressed: _loading ? null : _login,
                                         child: _loading
-                                            ? const CircularProgressIndicator(
-                                            color: Colors.white)
+                                            ? const CircularProgressIndicator(color: Colors.white)
                                             : const Text('Entrar'),
                                       ),
                                     ),
@@ -258,23 +243,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                       alignment: Alignment.centerRight,
                                       child: TextButton(
                                         onPressed: _resetPassword,
-                                        child: const Text(
-                                            '¿Olvidaste tu contraseña?'),
+                                        child: const Text('¿Olvidaste tu contraseña?'),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
-                                      mainAxisAlignment:
-                                      MainAxisAlignment.center,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         const Text('¿No tienes cuenta?'),
                                         TextButton(
                                           onPressed: () {
-                                            Navigator.pushReplacementNamed(
-                                                context, '/register');
+                                            Navigator.pushReplacementNamed(context, '/register');
                                           },
-                                          child:
-                                          const Text('Regístrate'),
+                                          child: const Text('Regístrate'),
                                         ),
                                       ],
                                     ),
