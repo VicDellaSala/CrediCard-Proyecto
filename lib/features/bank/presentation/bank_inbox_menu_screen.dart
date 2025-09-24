@@ -1,42 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
-class BankHomeScreen extends StatelessWidget {
-  const BankHomeScreen({super.key});
+class BankInboxMenuScreen extends StatelessWidget {
+  const BankInboxMenuScreen({super.key});
 
-  static const _panelColor = Color(0xFFAED6D8); // celeste consistente
-
-  Future<String?> _fetchUserBank() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return null;
-    final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-    if (!snap.exists) return null;
-    final data = snap.data();
-    final bank = data?['bank'];
-    if (bank is String && bank.trim().isNotEmpty) return bank;
-    return null;
-  }
-
-  Future<void> _confirmLogout(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Seguro que deseas cerrar sesión?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Cerrar')),
-        ],
-      ),
-    );
-    if (ok == true) {
-      await FirebaseAuth.instance.signOut();
-// Volver a la landing
-// ignore: use_build_context_synchronously
-      Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
-    }
-  }
+  static const _panelColor = Color(0xFFAED6D8);
 
   @override
   Widget build(BuildContext context) {
@@ -65,35 +32,18 @@ class BankHomeScreen extends StatelessWidget {
                           tooltip: 'Volver',
                         ),
                         const Spacer(),
-                        FutureBuilder<String?>(
-                          future: _fetchUserBank(),
-                          builder: (context, snap) {
-                            String title = 'Panel: Banco';
-                            if (snap.connectionState == ConnectionState.waiting) {
-                              title = 'Panel: …';
-                            } else if (snap.hasData && (snap.data ?? '').isNotEmpty) {
-                              title = 'Panel: ${snap.data}';
-                            }
-                            return Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                letterSpacing: 0.5,
-                                shadows: [Shadow(blurRadius: 2, color: Colors.black26, offset: Offset(0, 1))],
-                              ),
-                            );
-                          },
+                        const Text(
+                          'Buzón de Solicitudes',
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                            shadows: [Shadow(blurRadius: 2, color: Colors.black26, offset: Offset(0, 1))],
+                          ),
                         ),
                         const Spacer(),
-// Cerrar sesión
-                        TextButton.icon(
-                          onPressed: () => _confirmLogout(context),
-                          icon: const Icon(Icons.logout, color: Colors.white),
-                          label: const Text('Cerrar sesión', style: TextStyle(color: Colors.white)),
-                          style: TextButton.styleFrom(foregroundColor: Colors.white),
-                        ),
+                        const SizedBox(width: 48),
                       ],
                     ),
                   ),
@@ -124,15 +74,15 @@ class BankHomeScreen extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 _BigPillButton(
-                                  icon: Icons.inbox_outlined,
-                                  label: 'Buzón de Solicitudes',
-                                  onPressed: () => Navigator.pushNamed(context, '/bank/inbox-menu'),
+                                  icon: Icons.badge_outlined,
+                                  label: 'Afiliados',
+                                  onPressed: () => Navigator.pushNamed(context, '/bank/inbox/afiliados'),
                                 ),
                                 const SizedBox(height: 20),
                                 _BigPillButton(
-                                  icon: Icons.verified_outlined,
-                                  label: 'Solicitudes Procesadas',
-                                  onPressed: () => Navigator.pushNamed(context, '/bank/processed'),
+                                  icon: Icons.credit_card_outlined,
+                                  label: 'Autorización de terminal',
+                                  onPressed: () => Navigator.pushNamed(context, '/bank/inbox/terminal'),
                                 ),
                               ],
                             ),

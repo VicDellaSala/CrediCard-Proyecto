@@ -34,6 +34,15 @@ import 'features/supervisor/presentation/supervisor_home_screen.dart';
 import 'features/user/presentation/user_home_screen.dart';
 import 'features/operator/ventas/presentation/ventas_equipos.dart';
 
+// 🔹 Banco (nuevo rol)
+import 'features/bank/presentation/bank_home_screen.dart';
+import 'features/bank/presentation/bank_inbox_menu_screen.dart';
+import 'features/bank/presentation/bank_inbox_afiliados_screen.dart';
+import 'features/bank/presentation/bank_inbox_terminal_screen.dart';
+// (opcional) si ya tienes una pantalla de “procesadas”, impórtala;
+// si no, puedes crearla luego y dejar esta ruta apuntando a un placeholder temporal.
+// import 'features/bank/presentation/bank_processed_screen.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -82,7 +91,30 @@ class MyApp extends StatelessWidget {
         '/operator/almacen/entrega': (context) => const EntregaEquipoSimcardScreen(),
         '/operator/almacen/traslado': (context) => const TrasladoAlmacenScreen(),
 
-        '/ventas/equipos': (context) => const VentasEquiposScreen(),},
+// Ventas > Equipos
+        '/ventas/equipos': (context) => const VentasEquiposScreen(),
+
+// 🔹 Banco
+        '/bank': (context) => const BankHomeScreen(),
+        '/bank/inbox-menu': (context) => const BankInboxMenuScreen(),
+        '/bank/inbox/afiliados': (context) => const BankInboxAfiliadosScreen(),
+        '/bank/inbox/terminal': (context) => const BankInboxTerminalScreen(),
+// Si aún no tienes la pantalla de “procesadas”, deja un placeholder temporal:
+        '/bank/processed': (context) => const _BankProcessedPlaceholder(),
+      },
+    );
+  }
+}
+
+// Placeholder temporal para “Solicitudes Procesadas” (puedes reemplazarlo por tu pantalla real)
+class _BankProcessedPlaceholder extends StatelessWidget {
+  const _BankProcessedPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Solicitudes procesadas')),
+      body: const Center(child: Text('Aquí irán las solicitudes procesadas del banco')),
     );
   }
 }

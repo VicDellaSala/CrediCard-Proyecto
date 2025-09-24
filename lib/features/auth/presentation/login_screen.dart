@@ -10,6 +10,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+// Mismo color que en RegisterScreen
   static const _panelColor = Color(0xFFAED6D8);
 
   final _formKey = GlobalKey<FormState>();
@@ -36,43 +37,36 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passCtrl.text.trim(),
       );
 
-// 2) Leer datos del usuario en Firestore
+// 2) Leer datos del usuario en Firestore (colección 'users')
       final uid = cred.user!.uid;
       final snap = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .get();
 
-      final role = (snap.data()?['role'] as String?)?.toLowerCase() ?? 'cliente';
+// Si no existe el doc, asumimos 'usuario'
+      final data = snap.data() ?? {};
+      final role = (data['role'] as String?)?.toLowerCase() ?? 'usuario';
 
       if (!mounted) return;
 
-// 🔹 Bloqueo de cuentas pendientes
-      if (role == 'pending' || role == 'pending_bank') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Tu cuenta está pendiente de aprobación por el Administrador de Identidades.',
-            ),
-          ),
-        );
-        await FirebaseAuth.instance.signOut();
-        return;
+// 3) Redirigir según rol (AÑADIDO: 'banco' -> '/bank')
+      switch (role) {
+        case 'admin_identidades':
+          Navigator.pushReplacementNamed(context, '/admin');
+          break;
+        case 'operador':
+          Navigator.pushReplacementNamed(context, '/operator');
+          break;
+        case 'supervisor':
+          Navigator.pushReplacementNamed(context, '/supervisor');
+          break;
+        case 'banco': // 👈 NUEVO
+          Navigator.pushReplacementNamed(context, '/bank');
+          break;
+        default:
+          Navigator.pushReplacementNamed(context, '/home');
       }
-
-// 3) Redirigir según rol
-      late String target;
-      if (role == 'admin_identidades') {
-        target = '/admin';
-      } else if (role == 'operador') {
-        target = '/operator';
-      } else if (role == 'supervisor') {
-        target = '/supervisor';
-      } else {
-        target = '/home'; // cliente por defecto
-      }
-
-      Navigator.pushReplacementNamed(context, target);
     } on FirebaseAuthException catch (e) {
       final map = {
         'invalid-email': 'Correo inválido.',
@@ -83,7 +77,8 @@ class _LoginScreenState extends State<LoginScreen> {
       };
       final msg = map[e.code] ?? (e.message ?? 'Error de autenticación');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $msg')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $msg')));
       }
     } on FirebaseException catch (e) {
       if (mounted) {
@@ -138,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-// Header
+// Header celeste con flecha y título centrado (igual que en Registro)
                   Container(
                     decoration: BoxDecoration(
                       color: _panelColor,
@@ -171,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-// Banda blanca
+// Banda blanca fina para coherencia visual
                   Container(
                     width: double.infinity,
                     color: Colors.white,
@@ -179,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const SizedBox.shrink(),
                   ),
 
-// Form
+// Panel grande celeste con el formulario dentro de una tarjeta blanca
                   Expanded(
                     child: Container(
                       width: double.infinity,
