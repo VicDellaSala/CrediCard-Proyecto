@@ -32,15 +32,17 @@ import 'features/operator/almacen/presentation/traslado_almacen_screen.dart';
 // Supervisor & Usuario
 import 'features/supervisor/presentation/supervisor_home_screen.dart';
 import 'features/user/presentation/user_home_screen.dart';
+
+// Ventas > equipos (destino común)
 import 'features/operator/ventas/presentation/ventas_equipos.dart';
 
-// 🔹 Banco (nuevo rol)
+// Banco (nuevo rol)
 import 'features/bank/presentation/bank_home_screen.dart';
 import 'features/bank/presentation/bank_inbox_menu_screen.dart';
 import 'features/bank/presentation/bank_inbox_afiliados_screen.dart';
 import 'features/bank/presentation/bank_inbox_terminal_screen.dart';
-// (opcional) si ya tienes una pantalla de “procesadas”, impórtala;
-// si no, puedes crearla luego y dejar esta ruta apuntando a un placeholder temporal.
+// Si tienes una pantalla real para "procesadas", impórtala y
+// reemplaza el placeholder más abajo.
 // import 'features/bank/presentation/bank_processed_screen.dart';
 
 Future<void> main() async {
@@ -67,7 +69,7 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
 
 // Rutas según rol
-        '/home': (context) => const UserHomeScreen(), // usuarios/clientes (fallback)
+        '/home': (context) => const UserHomeScreen(), // fallback
         '/user': (context) => const UserHomeScreen(),
         '/supervisor': (context) => const SupervisorHomeScreen(),
         '/admin': (context) => const AdminHomeScreen(),
@@ -94,27 +96,29 @@ class MyApp extends StatelessWidget {
 // Ventas > Equipos
         '/ventas/equipos': (context) => const VentasEquiposScreen(),
 
-// 🔹 Banco
+// Banco
         '/bank': (context) => const BankHomeScreen(),
         '/bank/inbox-menu': (context) => const BankInboxMenuScreen(),
         '/bank/inbox/afiliados': (context) => const BankInboxAfiliadosScreen(),
         '/bank/inbox/terminal': (context) => const BankInboxTerminalScreen(),
-// Si aún no tienes la pantalla de “procesadas”, deja un placeholder temporal:
+// Reemplaza este placeholder cuando tengas la pantalla real:
         '/bank/processed': (context) => const _BankProcessedPlaceholder(),
       },
     );
   }
 }
 
-// Placeholder temporal para “Solicitudes Procesadas” (puedes reemplazarlo por tu pantalla real)
+// Placeholder temporal para “Solicitudes procesadas”
 class _BankProcessedPlaceholder extends StatelessWidget {
-  const _BankProcessedPlaceholder();
+  const _BankProcessedPlaceholder({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Solicitudes procesadas')),
-      body: const Center(child: Text('Aquí irán las solicitudes procesadas del banco')),
+      body: const Center(
+        child: Text('Aquí irán las solicitudes procesadas del banco'),
+      ),
     );
   }
 }

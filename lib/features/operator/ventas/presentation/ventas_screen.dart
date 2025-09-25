@@ -901,6 +901,109 @@ class _GestionAfiliadoScreen extends StatefulWidget {
   State<_GestionAfiliadoScreen> createState() => _GestionAfiliadoScreenState();
 }
 
+// Pantalla de confirmación: Solicitud enviada (pendiente de aprobación bancaria)
+class _SolicitudEnviadaScreen extends StatelessWidget {
+  const _SolicitudEnviadaScreen({super.key});
+
+  static const _panelColor = Color(0xFFAED6D8);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F2),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+// Header
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _panelColor,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                    child: const Row(
+                      children: [
+                        Spacer(),
+                        Text(
+                          'Solicitud enviada',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Spacer(),
+                        SizedBox(width: 48),
+                      ],
+                    ),
+                  ),
+                  Container(width: double.infinity, color: Colors.white, height: 8),
+
+// Cuerpo
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: Card(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(22),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.hourglass_top, size: 72, color: Colors.orange),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Tu solicitud de afiliación fue enviada al banco.\n'
+                                      'Queda pendiente de aprobación.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 20),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                                          context,
+                                          '/operator/ventas',
+                                              (_) => false,
+                                        ),
+                                        child: const Text('Volver al módulo de Ventas'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Gestionar otra afiliación'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
 class _GestionAfiliadoScreenState extends State<_GestionAfiliadoScreen> {
   static const _panelColor = Color(0xFFAED6D8);
   String? _selectedBank;
@@ -924,43 +1027,39 @@ class _GestionAfiliadoScreenState extends State<_GestionAfiliadoScreen> {
     }
     setState(() => _saving = true);
     try {
-      // Validar banco actual para evitar seleccionar el mismo
-      final snap = await FirebaseFirestore.instance
-          .collection('Cliente_completo')
-          .doc(widget.docId)
-          .get();
-      final currentBank = (snap.data()?['bank'] as String?)?.trim();
+      final snap = await FirebaseFirestore.instance.collection('Cliente_completo').doc(widget.docId).get();
+      final data = snap.data() ?? {};
+      final currentBank = (data['bank'] as String?)?.trim();
+      final rif = (data['rif'] as String?)?.trim() ?? '';
+      final fullName = (data['full_name'] as String?)?.trim();
+      final email = (data['email'] as String?)?.trim();
 
+      // Evitar mismo banco
       if ((currentBank ?? '').toLowerCase() == _selectedBank!.toLowerCase()) {
         if (mounted) {
-          await showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text('Afiliado'),
-              content: Text('El cliente ya se encuentra afiliado al banco: "${currentBank ?? '-'}".'),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido')),
-              ],
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ya se encuentra afiliado a ese banco')));
         }
         if (mounted) setState(() => _saving = false);
         return;
       }
 
-      await FirebaseFirestore.instance
-          .collection('Cliente_completo')
-          .doc(widget.docId)
-          .update({
-        'afiliado': true,
+      // Crear solicitud al banco (pendiente)
+      await FirebaseFirestore.instance.collection('bank_requests').add({
+        'type': 'afiliacion',
+        'status': 'pendiente',
         'bank': _selectedBank,
-        'updated_at': FieldValue.serverTimestamp(),
+        'rif': rif,
+        'rif_lower': rif.toLowerCase(),
+        'clientId': widget.docId,
+        'fullName': fullName,
+        'email': email,
+        'requestedAt': FieldValue.serverTimestamp(),
       });
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const _AfiliadoOkScreen()),
+        MaterialPageRoute(builder: (_) => const _SolicitudEnviadaScreen()),
       );
     } on FirebaseException catch (e) {
       if (mounted) {
@@ -1739,14 +1838,3 @@ class _TerminalDisponibleScreen extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
