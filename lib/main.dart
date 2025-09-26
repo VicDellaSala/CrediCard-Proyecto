@@ -23,11 +23,11 @@ import 'features/operator/finanzas/presentation/finanzas_screen.dart';
 
 // Operator > Almacén (menú + subpantallas)
 import 'features/operator/almacen/presentation/almacen_screen.dart';
-import 'features/operator/almacen/presentation/solicitar_equipos_screen.dart';
-import 'features/operator/almacen/presentation/gestion_almacen_screen.dart';
-import 'features/operator/almacen/presentation/autorizacion_solicitudes_screen.dart';
-import 'features/operator/almacen/presentation/entrega_equipo_simcard_screen.dart';
-import 'features/operator/almacen/presentation/traslado_almacen_screen.dart';
+import 'features/operator/almacen/presentation/almacen_equipos_menu_screen.dart';
+import 'features/operator/almacen/presentation/almacen_tarjetas_operadoras_screen.dart';
+// (ya deberías tener estos creados)
+import 'features/operator/almacen/presentation/almacen_ver_equipos.dart';
+import 'features/operator/almacen/presentation/almacen_anadir_equipos.dart';
 
 // Supervisor & Usuario
 import 'features/supervisor/presentation/supervisor_home_screen.dart';
@@ -41,9 +41,7 @@ import 'features/bank/presentation/bank_home_screen.dart';
 import 'features/bank/presentation/bank_inbox_menu_screen.dart';
 import 'features/bank/presentation/bank_inbox_afiliados_screen.dart';
 import 'features/bank/presentation/bank_inbox_terminal_screen.dart';
-// Si tienes una pantalla real para "procesadas", impórtala y
-// reemplaza el placeholder más abajo.
-// import 'features/bank/presentation/bank_processed_screen.dart';
+// import 'features/bank/presentation/bank_processed_screen.dart'; // si ya la tienes
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,11 +85,10 @@ class MyApp extends StatelessWidget {
 
 // Operador > Almacén
         '/operator/almacen': (context) => const AlmacenScreen(),
-        '/operator/almacen/solicitar': (context) => const SolicitarEquiposScreen(),
-        '/operator/almacen/gestion': (context) => const GestionAlmacenScreen(),
-        '/operator/almacen/autorizaciones': (context) => const AutorizacionSolicitudesScreen(),
-        '/operator/almacen/entrega': (context) => const EntregaEquipoSimcardScreen(),
-        '/operator/almacen/traslado': (context) => const TrasladoAlmacenScreen(),
+        '/operator/almacen/equipos': (context) => const AlmacenEquiposMenuScreen(),
+        '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasOperadorasScreen(),
+        '/operator/almacen/ver': (context) => const AlmacenVerEquiposScreen(),
+        '/operator/almacen/anadir': (context) => const AlmacenAnadirEquiposScreen(),
 
 // Ventas > Equipos
         '/ventas/equipos': (context) => const VentasEquiposScreen(),
@@ -101,7 +98,6 @@ class MyApp extends StatelessWidget {
         '/bank/inbox-menu': (context) => const BankInboxMenuScreen(),
         '/bank/inbox/afiliados': (context) => const BankInboxAfiliadosScreen(),
         '/bank/inbox/terminal': (context) => const BankInboxTerminalScreen(),
-// Reemplaza este placeholder cuando tengas la pantalla real:
         '/bank/processed': (context) => const _BankProcessedPlaceholder(),
       },
     );

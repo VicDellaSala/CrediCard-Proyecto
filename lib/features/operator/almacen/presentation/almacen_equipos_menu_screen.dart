@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class AlmacenScreen extends StatelessWidget {
-  const AlmacenScreen({super.key});
+class AlmacenEquiposMenuScreen extends StatelessWidget {
+  const AlmacenEquiposMenuScreen({super.key});
 
   static const _panelColor = Color(0xFFAED6D8);
 
@@ -63,7 +63,7 @@ class AlmacenScreen extends StatelessWidget {
                   ),
                   const Spacer(),
                   const Text(
-                    'Panel de Almacén',
+                    'Almacén · Equipos de venta',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white),
                   ),
                   const Spacer(),
@@ -82,14 +82,14 @@ class AlmacenScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _bigButton(
-                        text: 'Almacén de equipos de venta',
-                        icon: Icons.store,
-                        onTap: () => Navigator.pushNamed(context, '/operator/almacen/equipos'),
+                        text: 'Ver equipos',
+                        icon: Icons.inventory_2,
+                        onTap: () => Navigator.pushNamed(context, '/operator/almacen/ver'),
                       ),
                       _bigButton(
-                        text: 'Almacén de tarjetas de operadoras',
-                        icon: Icons.sim_card,
-                        onTap: () => Navigator.pushNamed(context, '/operator/almacen/tarjetas'),
+                        text: 'Añadir equipos',
+                        icon: Icons.add_box,
+                        onTap: () => Navigator.pushNamed(context, '/operator/almacen/anadir'),
                       ),
                     ],
                   ),
