@@ -1,9 +1,19 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
-/// >>> Si tu colección se llama distinto, cambia esto:
-const String kPVEquiposCollection = 'puntos_venta_equipos';
+/// Estructura en Firestore:
+/// almacen_pdv/{modeloId}
+/// - modelo: "Castlle"
+/// - modelo_id: "castlle"
+/// - updatedAt: ts
+/// subcolección equipos/{serial_lower}
+/// - serial: "UJ789"
+/// - serial_lower: "uj789"
+/// - createdAt: ts
+/// - createdBy: uid
+const String kAlmacenPdv = 'almacen_pdv';
+const String kSubEquipos = 'equipos';
 
 class AlmacenVerEquiposScreen extends StatelessWidget {
   const AlmacenVerEquiposScreen({super.key});
@@ -12,6 +22,11 @@ class AlmacenVerEquiposScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final modelosStream = FirebaseFirestore.instance
+        .collection(kAlmacenPdv)
+        .orderBy('modelo_id')
+        .snapshots();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       body: SafeArea(
@@ -50,9 +65,7 @@ class AlmacenVerEquiposScreen extends StatelessWidget {
 
             Expanded(
               child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: FirebaseFirestore.instance
-                    .collection(kPVEquiposCollection)
-                    .snapshots(),
+                stream: modelosStream,
                 builder: (context, snap) {
                   if (snap.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -63,136 +76,43 @@ class AlmacenVerEquiposScreen extends StatelessWidget {
                       child: Text('Error: ${snap.error}'),
                     );
                   }
-
                   final docs = snap.data?.docs ?? const [];
-
                   if (docs.isEmpty) {
                     return const Center(
-                      child: Text('No hay equipos registrados.'),
+                      child: Text('No hay modelos registrados en el almacén.'),
                     );
                   }
 
-// Agrupar por modelo y sumar cantidades totales + desglose por operadora
-                  final Map<String, int> totalPorModelo = {};
-                  final Map<String, Map<String, int>> desglosePorModelo = {};
+// GRID de tarjetas grandes (responsivo simple)
+                  return LayoutBuilder(
+                    builder: (context, c) {
+                      final w = c.maxWidth;
+                      final crossCount = w >= 1000 ? 3 : (w >= 650 ? 2 : 1);
 
-                  for (final d in docs) {
-                    final data = d.data();
-                    final modelo = (data['modelo'] ?? '').toString().trim();
-                    if (modelo.isEmpty) continue;
-
-                    final cant = (data['cantidad'] is int)
-                        ? data['cantidad'] as int
-                        : int.tryParse('${data['cantidad']}') ?? 0;
-
-                    final operadora = (data['operadora'] ?? '').toString().trim();
-                    totalPorModelo.update(modelo, (prev) => prev + cant, ifAbsent: () => cant);
-
-                    final mapa = desglosePorModelo.putIfAbsent(modelo, () => <String, int>{});
-                    final keyOp = _normalizaOperadora(operadora);
-                    mapa.update(keyOp, (prev) => prev + cant, ifAbsent: () => cant);
-                  }
-
-                  final modelos = totalPorModelo.keys.toList()
-                    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-// Total global
-                  final totalGlobal = totalPorModelo.values.fold<int>(0, (s, v) => s + v);
-
-                  return Column(
-                    children: [
-// Total global visible arriba
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.inventory_2, color: Colors.black87),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Equipos disponibles (todas las operadoras): $totalGlobal',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
-                          ),
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossCount,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.9,
                         ),
-                      ),
-                      const SizedBox(height: 8),
+                        itemCount: docs.length,
+                        itemBuilder: (_, i) {
+                          final d = docs[i];
+                          final data = d.data();
+                          final modelo = (data['modelo'] ?? '').toString();
+                          final modeloId = (data['modelo_id'] ?? '').toString();
+                          final docRef = d.reference;
 
-// Lista por modelo
-                      Expanded(
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemBuilder: (_, i) {
-                            final modelo = modelos[i];
-                            final total = totalPorModelo[modelo] ?? 0;
-                            final desglose = desglosePorModelo[modelo] ?? const {};
-
-                            return InkWell(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => _ModeloDetalleScreen(
-                                      modelo: modelo,
-                                      total: total,
-                                      desglose: desglose,
-                                    ),
-                                  ),
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: const [
-                                    BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.devices_other, color: Colors.black87),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            modelo,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text('Unidades totales: $total'),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(Icons.chevron_right),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemCount: modelos.length,
-                        ),
-                      ),
-                    ],
+                          return _ModeloCard(
+                            modelo: modelo,
+                            modeloId: modeloId,
+                            ref: docRef,
+                          );
+                        },
+                      );
+                    },
                   );
                 },
               ),
@@ -202,53 +122,111 @@ class AlmacenVerEquiposScreen extends StatelessWidget {
       ),
     );
   }
-
-  static String _normalizaOperadora(String raw) {
-    final v = raw.trim().toLowerCase();
-    if (v == 'movistar') return 'Movistar';
-    if (v == 'digitel') return 'Digitel';
-    if (v == 'pública' || v == 'publica') return 'Pública';
-    return 'Otros';
-  }
 }
 
-/// ---------------------------------------------------------------------------
-/// Detalle por modelo: muestra desglose y permite añadir más cantidad.
-class _ModeloDetalleScreen extends StatefulWidget {
+class _ModeloCard extends StatelessWidget {
   final String modelo;
-  final int total;
-  final Map<String, int> desglose;
+  final String modeloId;
+  final DocumentReference<Map<String, dynamic>> ref;
 
-  const _ModeloDetalleScreen({
+  const _ModeloCard({
     required this.modelo,
-    required this.total,
-    required this.desglose,
+    required this.modeloId,
+    required this.ref,
   });
 
   @override
-  State<_ModeloDetalleScreen> createState() => _ModeloDetalleScreenState();
+  Widget build(BuildContext context) {
+// Contador de seriales (sin orderBy para no exigir campos)
+    final countStream = ref.collection(kSubEquipos).snapshots();
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _ModeloDetalleScreen(
+              modelo: modelo,
+              modeloId: modeloId,
+              ref: ref,
+            ),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.devices_other, size: 34, color: Colors.black87),
+            const SizedBox(height: 10),
+            Text(
+              modelo,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const Spacer(),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: countStream,
+              builder: (context, snap) {
+                final total = (snap.data?.docs.length ?? 0);
+                return Text(
+                  'Seriales disponibles: $total',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
+/// Detalle del modelo: lista de seriales + botón para añadir serial
+class _ModeloDetalleScreen extends StatelessWidget {
+  final String modelo;
+  final String modeloId;
+  final DocumentReference<Map<String, dynamic>> ref;
+
+  const _ModeloDetalleScreen({
+    required this.modelo,
+    required this.modeloId,
+    required this.ref,
+  });
+
   static const _panelColor = Color(0xFFAED6D8);
 
   @override
   Widget build(BuildContext context) {
-    final movistar = widget.desglose['Movistar'] ?? 0;
-    final digitel = widget.desglose['Digitel'] ?? 0;
-    final publica = widget.desglose['Pública'] ?? 0;
-    final otros = widget.desglose.entries
-        .where((e) => e.key != 'Movistar' && e.key != 'Digitel' && e.key != 'Pública')
-        .fold<int>(0, (sum, e) => sum + e.value);
+// ⚠️ SIN orderBy para que incluya docs viejos sin serial_lower
+    final serialesStream = ref.collection(kSubEquipos).snapshots();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _onAddSerial(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Añadir serial'),
+      ),
       body: SafeArea(
         child: Column(
           children: [
 // Header
             Container(
-              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                color: _panelColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               child: Row(
@@ -260,7 +238,7 @@ class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
                   ),
                   const Spacer(),
                   Text(
-                    'Modelo: ${widget.modelo}',
+                    'Modelo: $modelo',
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
@@ -275,36 +253,72 @@ class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
             Container(width: double.infinity, height: 8, color: Colors.white),
 
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _cardDesglose('Movistar', movistar, Icons.network_cell),
-                      const SizedBox(height: 10),
-                      _cardDesglose('Digitel', digitel, Icons.signal_cellular_alt),
-                      const SizedBox(height: 10),
-                      _cardDesglose('Pública', publica, Icons.public),
-                      if (otros > 0) ...[
-                        const SizedBox(height: 10),
-                        _cardDesglose('Otros', otros, Icons.help_outline),
-                      ],
-                      const SizedBox(height: 18),
-                      _cardTotal(widget.total),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          onPressed: _onAddPressed,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Añadir más cantidad'),
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: serialesStream,
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snap.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text('Error: ${snap.error}'),
+                    );
+                  }
+
+                  final raw = snap.data?.docs ?? const [];
+                  if (raw.isEmpty) {
+                    return const Center(
+                      child: Text('No hay seriales cargados para este modelo.'),
+                    );
+                  }
+
+// Ordenar en cliente por serial (o serial_lower si existe)
+                  final items = raw
+                      .map((d) => d.data())
+                      .toList()
+                    ..sort((a, b) {
+                      final sa = (a['serial_lower'] ?? a['serial'] ?? '').toString();
+                      final sb = (b['serial_lower'] ?? b['serial'] ?? '').toString();
+                      return sa.compareTo(sb);
+                    });
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final data = items[i];
+                      final serial = (data['serial'] ?? '').toString();
+
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.qr_code, color: Colors.black54),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                serial.isEmpty ? '(sin serial)' : serial,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],
@@ -313,84 +327,48 @@ class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
     );
   }
 
-  Widget _cardDesglose(String label, int value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.black54),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
-          Text('$value', style: const TextStyle(fontSize: 16)),
-        ],
-      ),
-    );
-  }
-
-  Widget _cardTotal(int total) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.summarize, color: Colors.black54),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text('Total unidades', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          ),
-          Text('$total', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _onAddPressed() async {
-    final result = await showDialog<_AddUnitsResult>(
+  Future<void> _onAddSerial(BuildContext context) async {
+    final res = await showDialog<String?>(
       context: context,
-      builder: (_) => const _AddUnitsDialog(),
+      builder: (_) => const _AddSerialDialog(),
     );
-
-    if (result == null) return;
+    if (res == null) return;
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sesión inválida. Inicia sesión nuevamente.')),
+        const SnackBar(content: Text('Sesión inválida. Inicia sesión.')),
       );
       return;
     }
 
+    final serial = res.trim().toUpperCase();
+    final serialLower = serial.toLowerCase();
+
     try {
-      await FirebaseFirestore.instance.collection(kPVEquiposCollection).add({
-        'modelo': widget.modelo,
-        'cantidad': result.cantidad,
-        'operadora': result.operadora, // Movistar | Digitel | Pública
-        'serial': result.serial?.isEmpty == true ? null : result.serial,
-        'sin_serial': (result.serial == null || result.serial!.isEmpty),
+      final docRef = ref.collection(kSubEquipos).doc(serialLower);
+      final exists = await docRef.get();
+      if (exists.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('El serial $serial ya existe en este modelo.')),
+        );
+        return;
+      }
+
+      await docRef.set({
+        'serial': serial,
+        'serial_lower': serialLower,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': uid,
       });
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Se añadieron ${result.cantidad} a ${result.operadora}')),
-      );
+// actualiza updatedAt del modelo por conveniencia
+      await ref.update({'updatedAt': FieldValue.serverTimestamp()});
 
-// Volver automáticamente para ver el total actualizado o quedarte.
-// Navigator.pop(context);
-      setState(() {}); // refresca detalle (si estás sumando local, no necesario con streams)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Serial $serial añadido a $modelo')),
+      );
     } on FirebaseException catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')),
       );
@@ -398,96 +376,55 @@ class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
   }
 }
 
-/// ------------------------ Diálogo para añadir más ---------------------------
-
-class _AddUnitsResult {
-  final String operadora;
-  final int cantidad;
-  final String? serial;
-  const _AddUnitsResult({required this.operadora, required this.cantidad, this.serial});
-}
-
-class _AddUnitsDialog extends StatefulWidget {
-  const _AddUnitsDialog();
+class _AddSerialDialog extends StatefulWidget {
+  const _AddSerialDialog();
 
   @override
-  State<_AddUnitsDialog> createState() => _AddUnitsDialogState();
+  State<_AddSerialDialog> createState() => _AddSerialDialogState();
 }
 
-class _AddUnitsDialogState extends State<_AddUnitsDialog> {
+class _AddSerialDialogState extends State<_AddSerialDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _cantidadCtrl = TextEditingController();
-  final _serialCtrl = TextEditingController();
-
-  final _ops = const ['Movistar', 'Digitel', 'Pública'];
-  String? _operadora;
+  final _ctrl = TextEditingController();
 
   @override
   void dispose() {
-    _cantidadCtrl.dispose();
-    _serialCtrl.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Añadir cantidad'),
+      title: const Text('Añadir serial'),
       content: Form(
         key: _formKey,
         child: SizedBox(
           width: 360,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Operadora',
-                  border: OutlineInputBorder(),
-                ),
-                items: _ops.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                value: _operadora,
-                onChanged: (v) => setState(() => _operadora = v),
-                validator: (v) => v == null ? 'Selecciona una operadora' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _cantidadCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Cantidad',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (v) {
-                  final n = int.tryParse((v ?? '').trim());
-                  if (n == null || n <= 0) return 'Ingresa una cantidad válida (> 0)';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _serialCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Serial (opcional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
+          child: TextFormField(
+            controller: _ctrl,
+            decoration: const InputDecoration(
+              labelText: 'Serial (formato AA999, ej: UJ789)',
+              border: OutlineInputBorder(),
+            ),
+            textCapitalization: TextCapitalization.characters,
+            validator: (v) {
+              final s = (v ?? '').trim();
+              final reg = RegExp(r'^[A-Za-z]{2}\d{3}$');
+              if (!reg.hasMatch(s)) {
+                return 'Formato inválido. Usa 2 letras + 3 números (ej: UJ789)';
+              }
+              return null;
+            },
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancelar')),
         ElevatedButton(
           onPressed: () {
             if (!_formKey.currentState!.validate()) return;
-            final cantidad = int.parse(_cantidadCtrl.text.trim());
-            final res = _AddUnitsResult(
-              operadora: _operadora!,
-              cantidad: cantidad,
-              serial: _serialCtrl.text.trim().isEmpty ? null : _serialCtrl.text.trim(),
-            );
-            Navigator.pop(context, res);
+            Navigator.pop(context, _ctrl.text.trim().toUpperCase());
           },
           child: const Text('Guardar'),
         )

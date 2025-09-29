@@ -15,7 +15,6 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
   final _formKey = GlobalKey<FormState>();
   final _modeloCtrl = TextEditingController();
   final _serialCtrl = TextEditingController();
-  bool _sinSerial = false;
   bool _saving = false;
 
   @override
@@ -25,14 +24,22 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
     super.dispose();
   }
 
-  String _norm(String s) => s.trim();
-
   String _normId(String s) {
+// Normaliza para IDs: minúsculas, quita símbolos raros, espacios -> "_"
     final base = s.trim().toLowerCase();
-    final repl = base
+    final only = base
         .replaceAll(RegExp(r'[^\p{L}\p{N}\s_-]+', unicode: true), '')
         .replaceAll(RegExp(r'\s+'), '_');
-    return repl.isEmpty ? 'sin_nombre' : repl;
+    return only.isEmpty ? 'sin_nombre' : only;
+  }
+
+  String _normName(String s) => s.trim();
+
+// Valida "UG767": 2 letras + 3 dígitos (insensible a mayúsculas)
+  bool _validSerialPattern(String s) {
+    final v = s.trim();
+    final regex = RegExp(r'^[A-Za-z]{2}\d{3}$');
+    return regex.hasMatch(v);
   }
 
   Future<void> _guardar() async {
@@ -46,27 +53,11 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
       return;
     }
 
-    final modelo = _norm(_modeloCtrl.text);
-    final modeloId = _normId(modelo);
+    final modeloNombre = _normName(_modeloCtrl.text); // p.ej. "Castlle"
+    final modeloId = _normId(modeloNombre); // p.ej. "castlle"
 
-    late final String serialId;
-    String? serialValue;
-
-    if (_sinSerial) {
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      serialId = 'sin_$ts';
-      serialValue = null;
-    } else {
-      final s = _norm(_serialCtrl.text);
-      if (s.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ingresa el serial o marca "Sin serial"')),
-        );
-        return;
-      }
-      serialId = _normId(s);
-      serialValue = s;
-    }
+    final serialNombre = _serialCtrl.text.trim().toUpperCase(); // guardamos visible en MAYÚSCULAS "UG767"
+    final serialId = _normId(serialNombre); // id doc: "ug767"
 
     setState(() => _saving = true);
 
@@ -75,30 +66,33 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
           .collection('almacen_pdv')
           .doc(modeloId);
 
-      final equipoDocRef = modelDocRef.collection('equipos').doc(serialId);
+      final equipoDocRef = modelDocRef
+          .collection('equipos')
+          .doc(serialId);
 
+// Evitar duplicados de serial dentro del mismo modelo
       final exists = await equipoDocRef.get();
       if (exists.exists) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ya existe un equipo con ese serial en este modelo')),
+          SnackBar(content: Text('El serial $serialNombre ya existe en el modelo "$modeloNombre".')),
         );
         return;
       }
 
-// ✅ Crea/actualiza el doc del modelo (padre)
+// Crea/actualiza doc del modelo (padre)
       await modelDocRef.set({
-        'modelo': modelo,
-        'modelo_id': modeloId,
+        'modelo': modeloNombre, // bonito, como lo escribiste
+        'modelo_id': modeloId, // normalizado (clave)
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-// ✅ Crea el doc del equipo (subcolección)
+// Crea doc del equipo (subcolección con el serial)
       await equipoDocRef.set({
-        'modelo': modelo,
+        'modelo': modeloNombre,
         'modelo_id': modeloId,
-        'serial': serialValue, // null si es "sin serial"
-        'serial_id': serialId,
+        'serial': serialNombre, // "UG767"
+        'serial_id': serialId, // "ug767"
         'estado': 'activo',
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': uid,
@@ -106,13 +100,11 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Equipo guardado en "$modelo"')),
+        SnackBar(content: Text('Guardado: $modeloNombre → serial $serialNombre')),
       );
 
+// Limpia solo el serial para cargar otro del mismo modelo
       _serialCtrl.clear();
-      setState(() {
-        _sinSerial = false;
-      });
     } on FirebaseException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -144,7 +136,7 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
                   ),
                   const Spacer(),
                   const Text(
-                    'Almacén · Añadir equipo',
+                    'Almacén · Añadir equipo nuevo',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white),
                   ),
                   const Spacer(),
@@ -152,59 +144,74 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
                 ],
               ),
             ),
+            Container(width: double.infinity, height: 8, color: Colors.white),
+
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _modeloCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Modelo del equipo',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Ingresa el modelo' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
                         children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _serialCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Serial',
-                                border: OutlineInputBorder(),
-                              ),
-                              enabled: !_sinSerial,
-                              validator: (v) {
-                                if (_sinSerial) return null;
-                                if (v == null || v.isEmpty) return 'Ingresa el serial';
-                                return null;
-                              },
+// Modelo
+                          TextFormField(
+                            controller: _modeloCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Modelo del punto de venta (ej: Castlle / Unidigital)',
+                              border: OutlineInputBorder(),
                             ),
+                            validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Ingresa el modelo' : null,
                           ),
-                          const SizedBox(width: 8),
-                          Checkbox(
-                            value: _sinSerial,
-                            onChanged: (val) {
-                              setState(() {
-                                _sinSerial = val ?? false;
-                              });
+                          const SizedBox(height: 14),
+
+// Serial (2 letras + 3 números, ej: UG767)
+                          TextFormField(
+                            controller: _serialCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Serial (formato: AA999, ej: UG767)',
+                              border: OutlineInputBorder(),
+                            ),
+                            textCapitalization: TextCapitalization.characters,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Ingresa el serial';
+                              }
+                              if (!_validSerialPattern(v)) {
+                                return 'Formato inválido (usa 2 letras + 3 números, ej: UG767)';
+                              }
+                              return null;
                             },
                           ),
-                          const Text("Sin serial"),
+
+                          const SizedBox(height: 22),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              onPressed: _saving ? null : _guardar,
+                              icon: _saving
+                                  ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                                  : const Icon(Icons.save),
+                              label: const Text('Guardar equipo'),
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _saving ? null : _guardar,
-                        child: _saving
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('Guardar equipo'),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
