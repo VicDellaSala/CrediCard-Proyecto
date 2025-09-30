@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'firebase_options.dart'; // generado por `flutterfire configure`
 
 // Landing & Auth
 import 'features/landing/presentation/landing_screen.dart';
@@ -21,27 +21,26 @@ import 'features/operator/reportes/presentation/reportes_screen.dart';
 import 'features/operator/banco/presentation/banco_screen.dart';
 import 'features/operator/finanzas/presentation/finanzas_screen.dart';
 
-// Operator > Almacén (menú y subpantallas)
+// Operator > Almacén (menú principal)
 import 'features/operator/almacen/presentation/almacen_screen.dart';
-import 'features/operator/almacen/presentation/almacen_equipos_menu_screen.dart';
-// Menú de tarjetas (botones Ver / Añadir)
-import 'features/operator/almacen/presentation/almacen_tarjetas_screen.dart';
 
-// Equipos: Ver / Añadir
+// Almacén > Equipos (menú + subpantallas)
+import 'features/operator/almacen/presentation/almacen_equipos_menu_screen.dart';
 import 'features/operator/almacen/presentation/almacen_ver_equipos.dart';
 import 'features/operator/almacen/presentation/almacen_anadir_equipos.dart';
 
-// Tarjetas: Ver / Añadir (ojo a los nombres de clase correctos)
+// Almacén > Tarjetas (menú + subpantallas)
+import 'features/operator/almacen/presentation/almacen_tarjetas_screen.dart';
 import 'features/operator/almacen/presentation/almacen_ver_tarjetas.dart'
     show AlmacenVerTarjetasOperadorasScreen;
 import 'features/operator/almacen/presentation/almacen_anadir_tarjeta.dart'
-    show AlmacenAnadirTarjetasScreen;
+    show AlmacenAnadirTarjetaOperadoraScreen;
 
 // Supervisor & Usuario
 import 'features/supervisor/presentation/supervisor_home_screen.dart';
 import 'features/user/presentation/user_home_screen.dart';
 
-// Ventas > Equipos (destino común)
+// Ventas > equipos (destino común)
 import 'features/operator/ventas/presentation/ventas_equipos.dart';
 
 // Banco (nuevo rol)
@@ -49,6 +48,9 @@ import 'features/bank/presentation/bank_home_screen.dart';
 import 'features/bank/presentation/bank_inbox_menu_screen.dart';
 import 'features/bank/presentation/bank_inbox_afiliados_screen.dart';
 import 'features/bank/presentation/bank_inbox_terminal_screen.dart';
+// Si más adelante tienes una pantalla real para “procesadas”, impórtala y
+// reemplaza el placeholder de abajo.
+// import 'features/bank/presentation/bank_processed_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,18 +92,18 @@ class MyApp extends StatelessWidget {
         '/operator/banco': (context) => const BancoScreen(),
         '/operator/finanzas': (context) => const FinanzasScreen(),
 
-// Operador > Almacén (menú principal)
+// Operador > Almacén
         '/operator/almacen': (context) => const AlmacenScreen(),
 
-// Almacén > Equipos (menú + subrutas)
+// Almacén > Equipos
         '/operator/almacen/equipos': (context) => const AlmacenEquiposMenuScreen(),
         '/operator/almacen/ver': (context) => const AlmacenVerEquiposScreen(),
         '/operator/almacen/anadir': (context) => const AlmacenAnadirEquiposScreen(),
 
-// Almacén > Tarjetas (menú + subrutas)
-        '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasScreen(),
+// Almacén > Tarjetas
+        '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasOperadorasScreen(),
         '/operator/almacen/tarjetas/ver': (context) => const AlmacenVerTarjetasOperadorasScreen(),
-        '/operator/almacen/tarjetas/add': (context) => const AlmacenAnadirTarjetasScreen(),
+        '/operator/almacen/tarjetas/add': (context) => const AlmacenAnadirTarjetaOperadoraScreen(),
 
 // Ventas > Equipos
         '/ventas/equipos': (context) => const VentasEquiposScreen(),
@@ -120,6 +122,7 @@ class MyApp extends StatelessWidget {
 // Placeholder temporal para “Solicitudes procesadas”
 class _BankProcessedPlaceholder extends StatelessWidget {
   const _BankProcessedPlaceholder({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

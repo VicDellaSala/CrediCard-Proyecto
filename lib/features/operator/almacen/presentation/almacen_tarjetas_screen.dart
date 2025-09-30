@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class AlmacenTarjetasScreen extends StatelessWidget {
-  const AlmacenTarjetasScreen({super.key});
+class AlmacenTarjetasOperadorasScreen extends StatelessWidget {
+  const AlmacenTarjetasOperadorasScreen({super.key});
 
   static const _panelColor = Color(0xFFAED6D8);
 
@@ -12,10 +12,14 @@ class AlmacenTarjetasScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
+// Header celestito
             Container(
-              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+              decoration: BoxDecoration(
+                color: _panelColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 children: [
                   IconButton(
@@ -26,7 +30,11 @@ class AlmacenTarjetasScreen extends StatelessWidget {
                   const Spacer(),
                   const Text(
                     'Almacén · Tarjetas de operadoras',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white),
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -35,31 +43,31 @@ class AlmacenTarjetasScreen extends StatelessWidget {
             ),
             Container(width: double.infinity, height: 8, color: Colors.white),
 
+// Contenido
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, c) {
-                  final w = c.maxWidth;
-                  final cross = w >= 1000 ? 3 : (w >= 650 ? 2 : 1);
-                  return GridView.count(
-                    padding: const EdgeInsets.all(16),
-                    crossAxisCount: cross,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.9,
-                    children: [
-                      _BigCard(
-                        icon: Icons.view_list,
-                        title: 'Ver tarjetas',
-                        onTap: () => Navigator.pushNamed(context, '/operator/almacen/tarjetas/ver'),
-                      ),
-                      _BigCard(
-                        icon: Icons.add_card,
-                        title: 'Añadir tarjetas',
-                        onTap: () => Navigator.pushNamed(context, '/operator/almacen/tarjetas/add'),
-                      ),
-                    ],
-                  );
-                },
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _RectAction(
+                    icon: Icons.inventory_2,
+                    title: 'Ver tarjetas',
+                    subtitle: 'Revisión por línea y seriales disponibles',
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      '/operator/almacen/tarjetas/ver',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _RectAction(
+                    icon: Icons.add_card,
+                    title: 'Añadir tarjeta',
+                    subtitle: 'Registrar un nuevo serial por línea',
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      '/operator/almacen/tarjetas/add',
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -69,31 +77,56 @@ class AlmacenTarjetasScreen extends StatelessWidget {
   }
 }
 
-class _BigCard extends StatelessWidget {
+class _RectAction extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
-  const _BigCard({required this.icon, required this.title, required this.onTap});
+
+  const _RectAction({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+          ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Icon(icon, size: 34, color: Colors.black87),
-            const SizedBox(height: 10),
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const Spacer(),
-            const Text('Entrar', style: TextStyle(fontWeight: FontWeight.w600)),
+            Icon(icon, color: Colors.black87),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right),
           ],
         ),
       ),
