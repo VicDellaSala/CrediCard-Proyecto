@@ -2,30 +2,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-/// Estructura en Firestore:
-/// almacen_pdv/{modeloId}
-/// - modelo: "Castlle"
-/// - modelo_id: "castlle"
-/// - updatedAt: ts
-/// subcolección equipos/{serial_lower}
-/// - serial: "UJ789"
-/// - serial_lower: "uj789"
-/// - createdAt: ts
-/// - createdBy: uid
-const String kAlmacenPdv = 'almacen_pdv';
+/// ====================== CONSTANTES DE FIRESTORE ======================
+/// Raíz del almacén de puntos de venta (modelos)
+const String kAlmacenEquiposRoot = 'almacen_pdv';
+/// Subcolección con los seriales por modelo
 const String kSubEquipos = 'equipos';
 
+/// Color del encabezado “celestito”
+const Color _panelColor = Color(0xFFAED6D8);
+
+/// ====================================================================
+/// LISTADO DE MODELOS (con total de seriales disponibles)
 class AlmacenVerEquiposScreen extends StatelessWidget {
   const AlmacenVerEquiposScreen({super.key});
 
-  static const _panelColor = Color(0xFFAED6D8);
-
   @override
   Widget build(BuildContext context) {
-    final modelosStream = FirebaseFirestore.instance
-        .collection(kAlmacenPdv)
-        .orderBy('modelo_id')
-        .snapshots();
+    final colRef = FirebaseFirestore.instance.collection(kAlmacenEquiposRoot);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
@@ -63,9 +56,10 @@ class AlmacenVerEquiposScreen extends StatelessWidget {
             ),
             Container(width: double.infinity, height: 8, color: Colors.white),
 
+// Stream de todos los modelos
             Expanded(
               child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: modelosStream,
+                stream: colRef.snapshots(),
                 builder: (context, snap) {
                   if (snap.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -76,41 +70,91 @@ class AlmacenVerEquiposScreen extends StatelessWidget {
                       child: Text('Error: ${snap.error}'),
                     );
                   }
-                  final docs = snap.data?.docs ?? const [];
-                  if (docs.isEmpty) {
+
+                  final models = snap.data?.docs ?? const [];
+                  if (models.isEmpty) {
                     return const Center(
-                      child: Text('No hay modelos registrados en el almacén.'),
+                      child: Text('No hay equipos registrados.'),
                     );
                   }
 
-// GRID de tarjetas grandes (responsivo simple)
-                  return LayoutBuilder(
-                    builder: (context, c) {
-                      final w = c.maxWidth;
-                      final crossCount = w >= 1000 ? 3 : (w >= 650 ? 2 : 1);
+// Orden alfabético por modelo_id / modelo
+                  final sorted = [...models]..sort((a, b) {
+                    final ma = (a.id).toLowerCase();
+                    final mb = (b.id).toLowerCase();
+                    return ma.compareTo(mb);
+                  });
 
-                      return GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossCount,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 1.9,
-                        ),
-                        itemCount: docs.length,
-                        itemBuilder: (_, i) {
-                          final d = docs[i];
-                          final data = d.data();
-                          final modelo = (data['modelo'] ?? '').toString();
-                          final modeloId = (data['modelo_id'] ?? '').toString();
-                          final docRef = d.reference;
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: sorted.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, i) {
+                      final d = sorted[i];
+                      final data = d.data();
+                      final modeloId = d.id;
+                      final modelo = (data['modelo'] ?? modeloId).toString();
 
-                          return _ModeloCard(
-                            modelo: modelo,
-                            modeloId: modeloId,
-                            ref: docRef,
+// Contador de seriales en subcolección
+                      final subRef = colRef.doc(modeloId).collection(kSubEquipos);
+
+                      return InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => _ModeloDetalleScreen(
+                                modeloId: modeloId,
+                                modelo: modelo,
+                              ),
+                            ),
                           );
                         },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.devices_other, color: Colors.black87),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      modelo,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+
+// Total de seriales disponibles (conteo simple)
+                                    FutureBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                                      future: subRef.get(),
+                                      builder: (context, countSnap) {
+                                        if (countSnap.connectionState == ConnectionState.waiting) {
+                                          return const Text('Seriales disponibles: —');
+                                        }
+                                        final total = countSnap.data?.docs.length ?? 0;
+                                        return Text('Seriales disponibles: $total');
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right),
+                            ],
+                          ),
+                        ),
                       );
                     },
                   );
@@ -124,97 +168,42 @@ class AlmacenVerEquiposScreen extends StatelessWidget {
   }
 }
 
-class _ModeloCard extends StatelessWidget {
-  final String modelo;
+/// ====================================================================
+/// DETALLE DE MODELO: muestra descripción, características y seriales.
+/// Permite editar descripción/características y añadir nuevos seriales.
+class _ModeloDetalleScreen extends StatefulWidget {
   final String modeloId;
-  final DocumentReference<Map<String, dynamic>> ref;
-
-  const _ModeloCard({
-    required this.modelo,
-    required this.modeloId,
-    required this.ref,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-// Contador de seriales (sin orderBy para no exigir campos)
-    final countStream = ref.collection(kSubEquipos).snapshots();
-
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => _ModeloDetalleScreen(
-              modelo: modelo,
-              modeloId: modeloId,
-              ref: ref,
-            ),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.devices_other, size: 34, color: Colors.black87),
-            const SizedBox(height: 10),
-            Text(
-              modelo,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const Spacer(),
-            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: countStream,
-              builder: (context, snap) {
-                final total = (snap.data?.docs.length ?? 0);
-                return Text(
-                  'Seriales disponibles: $total',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Detalle del modelo: lista de seriales + botón para añadir serial
-class _ModeloDetalleScreen extends StatelessWidget {
   final String modelo;
-  final String modeloId;
-  final DocumentReference<Map<String, dynamic>> ref;
 
   const _ModeloDetalleScreen({
-    required this.modelo,
     required this.modeloId,
-    required this.ref,
+    required this.modelo,
   });
 
-  static const _panelColor = Color(0xFFAED6D8);
+  @override
+  State<_ModeloDetalleScreen> createState() => _ModeloDetalleScreenState();
+}
+
+class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
+  late final DocumentReference<Map<String, dynamic>> _modelRef;
+  late final CollectionReference<Map<String, dynamic>> _serialsRef;
+
+  @override
+  void initState() {
+    super.initState();
+    _modelRef = FirebaseFirestore.instance
+        .collection(kAlmacenEquiposRoot)
+        .doc(widget.modeloId);
+
+    _serialsRef = _modelRef.collection(kSubEquipos);
+  }
 
   @override
   Widget build(BuildContext context) {
-// ⚠️ SIN orderBy para que incluya docs viejos sin serial_lower
-    final serialesStream = ref.collection(kSubEquipos).snapshots();
-
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _onAddSerial(context),
+        onPressed: _onAddSerial,
         icon: const Icon(Icons.add),
         label: const Text('Añadir serial'),
       ),
@@ -238,7 +227,7 @@ class _ModeloDetalleScreen extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    'Modelo: $modelo',
+                    'Modelo: ${widget.modelo}',
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
@@ -252,74 +241,148 @@ class _ModeloDetalleScreen extends StatelessWidget {
             ),
             Container(width: double.infinity, height: 8, color: Colors.white),
 
-            Expanded(
-              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: serialesStream,
-                builder: (context, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snap.hasError) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text('Error: ${snap.error}'),
-                    );
-                  }
-
-                  final raw = snap.data?.docs ?? const [];
-                  if (raw.isEmpty) {
-                    return const Center(
-                      child: Text('No hay seriales cargados para este modelo.'),
-                    );
-                  }
-
-// Ordenar en cliente por serial (o serial_lower si existe)
-                  final items = raw
-                      .map((d) => d.data())
-                      .toList()
-                    ..sort((a, b) {
-                      final sa = (a['serial_lower'] ?? a['serial'] ?? '').toString();
-                      final sb = (b['serial_lower'] ?? b['serial'] ?? '').toString();
-                      return sa.compareTo(sb);
-                    });
-
-                  return ListView.separated(
+// FUTURE del doc de modelo (para leer/editar descripción y características)
+            FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              future: _modelRef.get(),
+              builder: (context, modelSnap) {
+                if (modelSnap.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (modelSnap.hasError) {
+                  return Padding(
                     padding: const EdgeInsets.all(16),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) {
-                      final data = items[i];
-                      final serial = (data['serial'] ?? '').toString();
+                    child: Text('Error: ${modelSnap.error}'),
+                  );
+                }
 
-                      return Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.qr_code, color: Colors.black54),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                serial.isEmpty ? '(sin serial)' : serial,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                final doc = modelSnap.data();
+                final mdata = doc?.data() ?? <String, dynamic>{};
+
+                final String descripcion = (mdata['descripcion'] ?? '').toString();
+                final String caracteristicas = (mdata['caracteristicas'] ?? '').toString();
+
+                return Expanded(
+                  child: Column(
+                    children: [
+// Tarjeta de Descripción + Características (con botones de editar)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _rowLabelValue(
+                                context: context,
+                                label: 'Descripción',
+                                value: descripcion.isEmpty ? '—' : descripcion,
+                                onEdit: () => _editTextField(
+                                  title: 'Editar descripción',
+                                  initial: descripcion,
+                                  fieldKey: 'descripcion',
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 8),
+                              _rowLabelValue(
+                                context: context,
+                                label: 'Características',
+                                value: caracteristicas.isEmpty ? '—' : caracteristicas,
+                                onEdit: () => _editTextField(
+                                  title: 'Editar características',
+                                  initial: caracteristicas,
+                                  fieldKey: 'caracteristicas',
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
+                      ),
+                      const SizedBox(height: 12),
+
+// Lista de seriales
+                      Expanded(
+                        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                          stream: _serialsRef.snapshots(),
+                          builder: (context, snap) {
+                            if (snap.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+                            if (snap.hasError) {
+                              return Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text('Error: ${snap.error}'),
+                              );
+                            }
+
+                            final serialDocs = snap.data?.docs ?? const [];
+                            if (serialDocs.isEmpty) {
+                              return const Center(
+                                child: Text('No hay seriales cargados para este modelo.'),
+                              );
+                            }
+
+                            final items = serialDocs
+                                .map((d) => d.data())
+                                .toList()
+                              ..sort((a, b) {
+                                final sa = (a['serial_lower'] ?? a['serial'] ?? '').toString();
+                                final sb = (b['serial_lower'] ?? b['serial'] ?? '').toString();
+                                return sa.compareTo(sb);
+                              });
+
+                            return ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: items.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (_, i) {
+                                final s = items[i];
+                                final serial = (s['serial'] ?? '').toString();
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black12,
+                                        blurRadius: 6,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.confirmation_number_outlined),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          serial.isEmpty ? '(sin serial)' : serial,
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -327,8 +390,69 @@ class _ModeloDetalleScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _onAddSerial(BuildContext context) async {
-    final res = await showDialog<String?>(
+  /// UI de la fila de Descripción/Características con botón editar
+  Widget _rowLabelValue({
+    required BuildContext context,
+    required String label,
+    required String value,
+    required VoidCallback onEdit,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(color: Colors.black87, fontSize: 15),
+              children: [
+                TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                TextSpan(text: value),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit, size: 20),
+          tooltip: 'Editar $label',
+        ),
+      ],
+    );
+  }
+
+  /// Edita un campo de texto del doc de modelo (descripcion / caracteristicas)
+  Future<void> _editTextField({
+    required String title,
+    required String initial,
+    required String fieldKey,
+  }) async {
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => _EditTextDialog(title: title, initial: initial),
+    );
+    if (text == null) return;
+
+    try {
+      await _modelRef.update({
+        fieldKey: text.trim(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Actualizado $fieldKey')),
+      );
+      setState(() {}); // refresca el FutureBuilder
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
+    }
+  }
+
+  /// Añadir un nuevo serial a la subcolección /equipos
+  Future<void> _onAddSerial() async {
+    final res = await showDialog<String>(
       context: context,
       builder: (_) => const _AddSerialDialog(),
     );
@@ -336,8 +460,9 @@ class _ModeloDetalleScreen extends StatelessWidget {
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sesión inválida. Inicia sesión.')),
+        const SnackBar(content: Text('Sesión inválida. Inicia sesión nuevamente.')),
       );
       return;
     }
@@ -346,12 +471,12 @@ class _ModeloDetalleScreen extends StatelessWidget {
     final serialLower = serial.toLowerCase();
 
     try {
-      final docRef = ref.collection(kSubEquipos).doc(serialLower);
+// Evitar duplicados por id (con el serial_lower como id del doc).
+      final docRef = _serialsRef.doc(serialLower);
       final exists = await docRef.get();
       if (exists.exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('El serial $serial ya existe en este modelo.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Ese serial ya existe para este modelo.')));
         return;
       }
 
@@ -362,20 +487,74 @@ class _ModeloDetalleScreen extends StatelessWidget {
         'createdBy': uid,
       });
 
-// actualiza updatedAt del modelo por conveniencia
-      await ref.update({'updatedAt': FieldValue.serverTimestamp()});
+      await _modelRef.update({'updatedAt': FieldValue.serverTimestamp()});
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Serial $serial añadido a $modelo')),
+        SnackBar(content: Text('Añadido $serial a ${widget.modelo}')),
       );
     } on FirebaseException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
     }
   }
 }
 
+/// ====================================================================
+/// Diálogo para editar texto (descripción / características)
+class _EditTextDialog extends StatefulWidget {
+  final String title;
+  final String initial;
+  const _EditTextDialog({required this.title, required this.initial});
+
+  @override
+  State<_EditTextDialog> createState() => _EditTextDialogState();
+}
+
+class _EditTextDialogState extends State<_EditTextDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initial);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 420,
+        child: TextField(
+          controller: _ctrl,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: 'Escribe aquí…',
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _ctrl.text),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
+/// ====================================================================
+/// Diálogo para añadir un serial (valida letras+números sencillos)
 class _AddSerialDialog extends StatefulWidget {
   const _AddSerialDialog();
 
@@ -385,11 +564,11 @@ class _AddSerialDialog extends StatefulWidget {
 
 class _AddSerialDialogState extends State<_AddSerialDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _ctrl = TextEditingController();
+  final _serialCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _serialCtrl.dispose();
     super.dispose();
   }
 
@@ -402,29 +581,29 @@ class _AddSerialDialogState extends State<_AddSerialDialog> {
         child: SizedBox(
           width: 360,
           child: TextFormField(
-            controller: _ctrl,
+            controller: _serialCtrl,
             decoration: const InputDecoration(
-              labelText: 'Serial (formato AA999, ej: UJ789)',
+              labelText: 'Serial (ej. UG767)',
               border: OutlineInputBorder(),
             ),
             textCapitalization: TextCapitalization.characters,
             validator: (v) {
               final s = (v ?? '').trim();
-              final reg = RegExp(r'^[A-Za-z]{2}\d{3}$');
-              if (!reg.hasMatch(s)) {
-                return 'Formato inválido. Usa 2 letras + 3 números (ej: UJ789)';
-              }
+              if (s.isEmpty) return 'Ingresa un serial';
+// Acepta letras y números (puedes afinar el patrón a AA999 si lo deseas)
+              final ok = RegExp(r'^[A-Za-z0-9\-_.]+$').hasMatch(s);
+              if (!ok) return 'Caracteres inválidos';
               return null;
             },
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancelar')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
         ElevatedButton(
           onPressed: () {
             if (!_formKey.currentState!.validate()) return;
-            Navigator.pop(context, _ctrl.text.trim().toUpperCase());
+            Navigator.pop(context, _serialCtrl.text.trim());
           },
           child: const Text('Guardar'),
         )

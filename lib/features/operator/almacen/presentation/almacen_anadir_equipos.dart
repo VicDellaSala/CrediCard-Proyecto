@@ -15,12 +15,19 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
   final _formKey = GlobalKey<FormState>();
   final _modeloCtrl = TextEditingController();
   final _serialCtrl = TextEditingController();
+
+// 👇 NUEVO: campos opcionales del MODELO
+  final _descCtrl = TextEditingController();
+  final _caractCtrl = TextEditingController();
+
   bool _saving = false;
 
   @override
   void dispose() {
     _modeloCtrl.dispose();
     _serialCtrl.dispose();
+    _descCtrl.dispose(); // 👈 NUEVO
+    _caractCtrl.dispose(); // 👈 NUEVO
     super.dispose();
   }
 
@@ -59,6 +66,10 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
     final serialNombre = _serialCtrl.text.trim().toUpperCase(); // guardamos visible en MAYÚSCULAS "UG767"
     final serialId = _normId(serialNombre); // id doc: "ug767"
 
+// 👇 NUEVO: textos opcionales
+    final descripcion = _descCtrl.text.trim();
+    final caracteristicas = _caractCtrl.text.trim();
+
     setState(() => _saving = true);
 
     try {
@@ -80,14 +91,18 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
         return;
       }
 
-// Crea/actualiza doc del modelo (padre)
-      await modelDocRef.set({
-        'modelo': modeloNombre, // bonito, como lo escribiste
-        'modelo_id': modeloId, // normalizado (clave)
+// Crea/actualiza doc del MODELO (padre) con merge
+      final toSetModel = <String, dynamic>{
+        'modelo': modeloNombre,
+        'modelo_id': modeloId,
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+      if (descripcion.isNotEmpty) toSetModel['descripcion'] = descripcion; // 👈 NUEVO
+      if (caracteristicas.isNotEmpty) toSetModel['caracteristicas'] = caracteristicas; // 👈 NUEVO
 
-// Crea doc del equipo (subcolección con el serial)
+      await modelDocRef.set(toSetModel, SetOptions(merge: true));
+
+// Crea doc del EQUIPO (subcolección con el serial)
       await equipoDocRef.set({
         'modelo': modeloNombre,
         'modelo_id': modeloId,
@@ -105,6 +120,8 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
 
 // Limpia solo el serial para cargar otro del mismo modelo
       _serialCtrl.clear();
+// Si quieres, deja persistentes descripción/características; NO limpio esos campos.
+
     } on FirebaseException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -171,6 +188,28 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
                             ),
                             validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Ingresa el modelo' : null,
+                          ),
+                          const SizedBox(height: 14),
+
+// 👇 NUEVO: Descripción / Características del MODELO
+                          TextFormField(
+                            controller: _descCtrl,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              labelText: 'Descripción del equipo (opcional)',
+                              hintText: 'Resumen: tamaño, conectividad, etc.',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _caractCtrl,
+                            maxLines: 4,
+                            decoration: const InputDecoration(
+                              labelText: 'Características (opcional)',
+                              hintText: 'Ej: WiFi 2.4/5GHz, NFC, batería 5000mAh…',
+                              border: OutlineInputBorder(),
+                            ),
                           ),
                           const SizedBox(height: 14),
 
