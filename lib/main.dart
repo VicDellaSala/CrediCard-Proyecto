@@ -34,7 +34,7 @@ import 'features/operator/almacen/presentation/almacen_tarjetas_screen.dart';
 import 'features/operator/almacen/presentation/almacen_ver_tarjetas.dart'
     show AlmacenVerTarjetasOperadorasScreen;
 import 'features/operator/almacen/presentation/almacen_anadir_tarjeta.dart'
-    show AlmacenAnadirTarjetaOperadoraScreen;
+    show AlmacenAnadirTarjetasOperadorasScreen;
 
 // Supervisor & Usuario
 import 'features/supervisor/presentation/supervisor_home_screen.dart';
@@ -103,7 +103,7 @@ class MyApp extends StatelessWidget {
 // Almacén > Tarjetas
         '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasOperadorasScreen(),
         '/operator/almacen/tarjetas/ver': (context) => const AlmacenVerTarjetasOperadorasScreen(),
-        '/operator/almacen/tarjetas/add': (context) => const AlmacenAnadirTarjetaOperadoraScreen(),
+        '/operator/almacen/tarjetas/add': (context) => const AlmacenAnadirTarjetasOperadorasScreen(),
 
 // Ventas > Equipos
         '/ventas/equipos': (context) => const VentasEquiposScreen(),
