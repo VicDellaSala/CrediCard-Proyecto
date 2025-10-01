@@ -2,34 +2,33 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-/// Colecciones usadas para TARJETAS de operadoras
-const String kTarjRoot = 'almacen_tarjetas'; // doc por línea: digitel / movistar / publica
-const String kSubTarjetas = 'tarjetas'; // subcolección con documentos por serial
+/// ====================== CONSTANTES DE FIRESTORE ======================
+const String kAlmacenTarjetasRoot = 'almacen_tarjetas'; // colección raíz por línea
+const String kSubTarjetas = 'tarjetas'; // subcolección de seriales
+const Color _panelColor = Color(0xFFAED6D8);
 
-/// ╔═══════════════════════════════════════════════════════════════════╗
-/// ║ Lista de líneas (Digitel / Movistar / Pública) con conteo total ║
-/// ╚═══════════════════════════════════════════════════════════════════╝
+/// ====================================================================
+/// LISTADO DE LÍNEAS (con total de seriales disponibles por línea)
 class AlmacenVerTarjetasOperadorasScreen extends StatelessWidget {
   const AlmacenVerTarjetasOperadorasScreen({super.key});
 
-  static const _panelColor = Color(0xFFAED6D8);
-  static const _lines = <String>['Digitel', 'Movistar', 'Publica'];
-
   @override
   Widget build(BuildContext context) {
+    final colRef = FirebaseFirestore.instance.collection(kAlmacenTarjetasRoot);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       body: SafeArea(
         child: Column(
           children: [
-// Encabezado celestito
+// Header
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               decoration: BoxDecoration(
                 color: _panelColor,
                 borderRadius: BorderRadius.circular(16),
               ),
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               child: Row(
                 children: [
                   IconButton(
@@ -39,7 +38,7 @@ class AlmacenVerTarjetasOperadorasScreen extends StatelessWidget {
                   ),
                   const Spacer(),
                   const Text(
-                    'Almacén · Ver tarjetas',
+                    'Almacén · Tarjetas de operadoras',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w600,
@@ -54,30 +53,52 @@ class AlmacenVerTarjetasOperadorasScreen extends StatelessWidget {
             Container(width: double.infinity, height: 8, color: Colors.white),
 
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: _lines.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, i) {
-                  final linea = _lines[i];
-                  final lineaId = _lineId(linea);
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: colRef.snapshots(),
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snap.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text('Error: ${snap.error}'),
+                    );
+                  }
 
-// StreamBuilder para contar cuántos seriales hay en esa línea
-                  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: FirebaseFirestore.instance
-                        .collection(kTarjRoot)
-                        .doc(lineaId)
-                        .collection(kSubTarjetas)
-                        .snapshots(),
-                    builder: (context, snap) {
-                      final total = snap.hasData ? snap.data!.docs.length : 0;
+                  final lineas = snap.data?.docs ?? const [];
+                  if (lineas.isEmpty) {
+                    return const Center(
+                      child: Text('No hay líneas registradas.'),
+                    );
+                  }
+
+                  final sorted = [...lineas]..sort((a, b) {
+                    final la = (a.data()['linea'] ?? a.id).toString().toLowerCase();
+                    final lb = (b.data()['linea'] ?? b.id).toString().toLowerCase();
+                    return la.compareTo(lb);
+                  });
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: sorted.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, i) {
+                      final d = sorted[i];
+                      final data = d.data();
+                      final lineaId = d.id;
+                      final nombreLinea = (data['linea'] ?? lineaId).toString();
+                      final subRef = colRef.doc(lineaId).collection(kSubTarjetas);
 
                       return InkWell(
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => AlmacenVerTarjetasScreen(linea: linea),
+                              builder: (_) => _LineaDetalleScreen(
+                                lineaId: lineaId,
+                                nombreLinea: nombreLinea,
+                              ),
                             ),
                           );
                         },
@@ -88,30 +109,35 @@ class AlmacenVerTarjetasOperadorasScreen extends StatelessWidget {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 6,
-                                offset: Offset(0, 3),
-                              ),
+                              BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
                             ],
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.apartment, color: Colors.black87),
+                              const Icon(Icons.sim_card, color: Colors.black87),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      linea,
+                                      nombreLinea,
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    Text('Seriales disponibles: $total'),
+                                    FutureBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                                      future: subRef.get(),
+                                      builder: (context, countSnap) {
+                                        if (countSnap.connectionState == ConnectionState.waiting) {
+                                          return const Text('Seriales disponibles: —');
+                                        }
+                                        final total = countSnap.data?.docs.length ?? 0;
+                                        return Text('Seriales disponibles: $total');
+                                      },
+                                    ),
                                   ],
                                 ),
                               ),
@@ -130,40 +156,56 @@ class AlmacenVerTarjetasOperadorasScreen extends StatelessWidget {
       ),
     );
   }
-
-  static String _lineId(String name) {
-    final v = name.trim().toLowerCase();
-    if (v == 'pública') return 'publica';
-    return v;
-  }
 }
 
-/// ╔═══════════════════════════════════════════════════════════════════╗
-/// ║ Detalle de una línea: lista de seriales + botón “Añadir serial” ║
-/// ╚═══════════════════════════════════════════════════════════════════╝
-class AlmacenVerTarjetasScreen extends StatelessWidget {
-  final String linea;
-  const AlmacenVerTarjetasScreen({super.key, required this.linea});
+/// ====================================================================
+/// DETALLE DE LÍNEA: lista de seriales + acción de añadir y eliminar
+class _LineaDetalleScreen extends StatefulWidget {
+  final String lineaId;
+  final String nombreLinea;
 
-  static const _panelColor = Color(0xFFAED6D8);
+  const _LineaDetalleScreen({
+    required this.lineaId,
+    required this.nombreLinea,
+  });
+
+  @override
+  State<_LineaDetalleScreen> createState() => _LineaDetalleScreenState();
+}
+
+class _LineaDetalleScreenState extends State<_LineaDetalleScreen> {
+  late final DocumentReference<Map<String, dynamic>> _lineaRef;
+  late final CollectionReference<Map<String, dynamic>> _serialsRef;
+
+  @override
+  void initState() {
+    super.initState();
+    _lineaRef = FirebaseFirestore.instance
+        .collection(kAlmacenTarjetasRoot)
+        .doc(widget.lineaId);
+    _serialsRef = _lineaRef.collection(kSubTarjetas);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final lineaId = _lineId(linea);
-
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _onAddSerial,
+        icon: const Icon(Icons.add),
+        label: const Text('Añadir serial'),
+      ),
       body: SafeArea(
         child: Column(
           children: [
 // Header
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               decoration: BoxDecoration(
                 color: _panelColor,
                 borderRadius: BorderRadius.circular(16),
               ),
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               child: Row(
                 children: [
                   IconButton(
@@ -173,9 +215,9 @@ class AlmacenVerTarjetasScreen extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    'Línea: $linea',
+                    'Línea: ${widget.nombreLinea}',
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
@@ -189,12 +231,7 @@ class AlmacenVerTarjetasScreen extends StatelessWidget {
 
             Expanded(
               child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: FirebaseFirestore.instance
-                    .collection(kTarjRoot)
-                    .doc(lineaId)
-                    .collection(kSubTarjetas)
-                    .orderBy('serial_lower') // orden alfabético por id en minúsculas
-                    .snapshots(),
+                stream: _serialsRef.snapshots(),
                 builder: (context, snap) {
                   if (snap.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -206,21 +243,76 @@ class AlmacenVerTarjetasScreen extends StatelessWidget {
                     );
                   }
 
-                  final docs = snap.data?.docs ?? const [];
-                  if (docs.isEmpty) {
-                    return const Center(
-                      child: Text('No hay seriales cargados para esta línea.'),
+                  final serialDocs = snap.data?.docs ?? const [];
+                  if (serialDocs.isEmpty) {
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: _card(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  'Acciones de seriales',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 10),
+                                OutlinedButton.icon(
+                                  onPressed: _onDeleteSerial,
+                                  icon: const Icon(Icons.delete_outline),
+                                  label: const Text('Eliminar serial'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Expanded(
+                          child: Center(
+                            child: Text('No hay seriales cargados para esta línea.'),
+                          ),
+                        ),
+                      ],
                     );
                   }
 
+                  final items = serialDocs
+                      .map((d) => d.data())
+                      .toList()
+                    ..sort((a, b) {
+                      final sa = (a['serial_lower'] ?? a['serial'] ?? '').toString();
+                      final sb = (b['serial_lower'] ?? b['serial'] ?? '').toString();
+                      return sa.compareTo(sb);
+                    });
+
                   return ListView.separated(
                     padding: const EdgeInsets.all(16),
-                    itemCount: docs.length,
+                    itemCount: items.length + 1, // +1 tarjeta de acciones arriba
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final data = docs[i].data();
-                      final serial = (data['serial'] ?? '').toString();
-                      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+                    itemBuilder: (_, i) {
+                      if (i == 0) {
+                        return _card(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'Acciones de seriales',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 10),
+                              OutlinedButton.icon(
+                                onPressed: _onDeleteSerial,
+                                icon: const Icon(Icons.delete_outline),
+                                label: const Text('Eliminar serial'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final s = items[i - 1];
+                      final serial = (s['serial'] ?? '').toString();
+                      final createdAt = (s['createdAt'] as Timestamp?)?.toDate();
 
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -228,34 +320,28 @@ class AlmacenVerTarjetasScreen extends StatelessWidget {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 6,
+                              offset: Offset(0, 3),
+                            ),
                           ],
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.credit_card, color: Colors.black87),
+                            const Icon(Icons.confirmation_number_outlined),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    serial,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  if (createdAt != null) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Cargado: $createdAt',
-                                      style: const TextStyle(fontSize: 12, color: Colors.black54),
-                                    ),
-                                  ],
-                                ],
+                              child: Text(
+                                serial.isEmpty ? '(sin serial)' : serial,
+                                style: const TextStyle(fontSize: 16),
                               ),
                             ),
+                            if (createdAt != null)
+                              Text(
+                                '${createdAt.toLocal()}',
+                                style: const TextStyle(fontSize: 12, color: Colors.black54),
+                              ),
                           ],
                         ),
                       );
@@ -267,23 +353,25 @@ class AlmacenVerTarjetasScreen extends StatelessWidget {
           ],
         ),
       ),
-
-// FAB para añadir nuevo serial (valida LLDD)
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _onAddSerial(context, lineaId, linea),
-        icon: const Icon(Icons.add),
-        label: const Text('Añadir serial'),
-      ),
     );
   }
 
-  static String _lineId(String name) {
-    final v = name.trim().toLowerCase();
-    if (v == 'pública') return 'publica';
-    return v;
+  /// --------------------------- Helpers UI ---------------------------
+  Widget _card({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
+      ),
+      child: child,
+    );
   }
 
-  Future<void> _onAddSerial(BuildContext context, String lineaId, String linea) async {
+  /// --------------------------- Serial: Añadir / Eliminar ---------------------------
+  Future<void> _onAddSerial() async {
     final res = await showDialog<String>(
       context: context,
       builder: (_) => const _AddSerialDialog(),
@@ -292,64 +380,89 @@ class AlmacenVerTarjetasScreen extends StatelessWidget {
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sesión inválida. Inicia sesión nuevamente.')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sesión inválida. Inicia sesión nuevamente.')),
+      );
       return;
     }
 
-    final serial = res.trim().toUpperCase(); // EJ: BU67
-    final serialLower = serial.toLowerCase(); // id del doc
+    final serial = res.trim().toUpperCase();
+    final serialLower = serial.toLowerCase();
 
     try {
-      final root = FirebaseFirestore.instance.collection(kTarjRoot);
-      final lineRef = root.doc(lineaId);
-      final lineDoc = await lineRef.get();
-
-// si la línea aún no existe, se crea
-      if (!lineDoc.exists) {
-        await lineRef.set({
-          'linea': linea,
-          'linea_id': lineaId,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+      final docRef = _serialsRef.doc(serialLower);
+      final exists = await docRef.get();
+      if (exists.exists) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('El serial $serial ya existe en esta línea.')));
+        return;
       }
 
-      final serialRef = lineRef.collection(kSubTarjetas).doc(serialLower);
-      final already = await serialRef.get();
-      if (already.exists) {
-        throw FirebaseException(plugin: 'firestore', code: 'already-exists', message: 'El serial ya existe');
-      }
-
-      await serialRef.set({
+      await docRef.set({
         'serial': serial,
         'serial_lower': serialLower,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': uid,
       });
 
-      await lineRef.update({'updatedAt': FieldValue.serverTimestamp()});
+      await _lineaRef.set({
+        'linea': widget.nombreLinea,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Añadido $serial a $linea')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Añadido $serial a ${widget.nombreLinea}')),
+      );
     } on FirebaseException catch (e) {
-      if (context.mounted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
+    }
+  }
+
+  Future<void> _onDeleteSerial() async {
+    final res = await showDialog<String>(
+      context: context,
+      builder: (_) => const _DeleteSerialDialog(),
+    );
+    if (res == null) return;
+
+    final serial = res.trim().toUpperCase();
+    if (serial.isEmpty) return;
+
+    final serialLower = serial.toLowerCase();
+
+    try {
+      final docRef = _serialsRef.doc(serialLower);
+      final doc = await docRef.get();
+      if (!doc.exists) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.message ?? e.code}')),
+          SnackBar(content: Text('El serial $serial no existe en ${widget.nombreLinea}.')),
         );
+        return;
       }
+
+      await docRef.delete();
+      await _lineaRef.update({'updatedAt': FieldValue.serverTimestamp()});
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Serial $serial eliminado de ${widget.nombreLinea}')),
+      );
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error al eliminar: ${e.message ?? e.code}')));
     }
   }
 }
 
-/// ╔═══════════════════════════════════════════════════════════════════╗
-/// ║ Diálogo para capturar serial con validación EXACTA LLDD (BU67) ║
-/// ╚═══════════════════════════════════════════════════════════════════╝
+/// ====================================================================
+/// Diálogo para añadir un serial (valida letras+números)
 class _AddSerialDialog extends StatefulWidget {
   const _AddSerialDialog();
 
@@ -359,35 +472,34 @@ class _AddSerialDialog extends StatefulWidget {
 
 class _AddSerialDialogState extends State<_AddSerialDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _ctrl = TextEditingController();
-
-// Dos letras (A-Z) + dos números (0-9), p.ej. BU67
-  final _re = RegExp(r'^[A-Z]{2}\d{2}$');
+  final _serialCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _serialCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Añadir serial'),
+      title: const Text('Añadir serial de tarjeta'),
       content: Form(
         key: _formKey,
         child: SizedBox(
           width: 360,
           child: TextFormField(
-            controller: _ctrl,
-            textCapitalization: TextCapitalization.characters,
+            controller: _serialCtrl,
             decoration: const InputDecoration(
-              labelText: 'Serial (formato: LLDD, ej: BU67)',
+              labelText: 'Serial (ej. BU67)',
               border: OutlineInputBorder(),
             ),
+            textCapitalization: TextCapitalization.characters,
             validator: (v) {
-              final txt = (v ?? '').trim().toUpperCase();
-              if (!_re.hasMatch(txt)) return 'Formato inválido. Usa 2 letras + 2 números (ej: BU67)';
+              final s = (v ?? '').trim();
+              if (s.isEmpty) return 'Ingresa un serial';
+              final ok = RegExp(r'^[A-Za-z0-9\-_.]+$').hasMatch(s);
+              if (!ok) return 'Caracteres inválidos';
               return null;
             },
           ),
@@ -398,9 +510,65 @@ class _AddSerialDialogState extends State<_AddSerialDialog> {
         ElevatedButton(
           onPressed: () {
             if (!_formKey.currentState!.validate()) return;
-            Navigator.pop(context, _ctrl.text.trim().toUpperCase());
+            Navigator.pop(context, _serialCtrl.text.trim());
           },
           child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
+/// ====================================================================
+/// Diálogo para eliminar un serial (debe ingresar el serial exacto)
+class _DeleteSerialDialog extends StatefulWidget {
+  const _DeleteSerialDialog();
+
+  @override
+  State<_DeleteSerialDialog> createState() => _DeleteSerialDialogState();
+}
+
+class _DeleteSerialDialogState extends State<_DeleteSerialDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _serialCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _serialCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Eliminar serial de tarjeta'),
+      content: Form(
+        key: _formKey,
+        child: SizedBox(
+          width: 360,
+          child: TextFormField(
+            controller: _serialCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Serial exacto (ej. BU67)',
+              border: OutlineInputBorder(),
+            ),
+            textCapitalization: TextCapitalization.characters,
+            validator: (v) {
+              final s = (v ?? '').trim();
+              if (s.isEmpty) return 'Ingresa el serial a eliminar';
+              return null;
+            },
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        ElevatedButton(
+          onPressed: () {
+            if (!_formKey.currentState!.validate()) return;
+            Navigator.pop(context, _serialCtrl.text.trim());
+          },
+          child: const Text('Eliminar'),
         ),
       ],
     );

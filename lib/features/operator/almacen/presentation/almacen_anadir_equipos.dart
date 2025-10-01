@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+const String kAlmacenEquiposRoot = 'almacen_pdv'; // colección raíz (modelos)
+const String kSubEquipos = 'equipos'; // subcolección (seriales)
+const Color _panelColor = Color(0xFFAED6D8);
 
 class AlmacenAnadirEquiposScreen extends StatefulWidget {
   const AlmacenAnadirEquiposScreen({super.key});
@@ -10,15 +14,13 @@ class AlmacenAnadirEquiposScreen extends StatefulWidget {
 }
 
 class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen> {
-  static const _panelColor = Color(0xFFAED6D8);
-
   final _formKey = GlobalKey<FormState>();
+
   final _modeloCtrl = TextEditingController();
   final _serialCtrl = TextEditingController();
-
-// 👇 NUEVO: campos opcionales del MODELO
-  final _descCtrl = TextEditingController();
-  final _caractCtrl = TextEditingController();
+  final _descripcionCtrl = TextEditingController();
+  final _caracteristicasCtrl = TextEditingController();
+  final _precioCtrl = TextEditingController(); // NUEVO (opcional, double)
 
   bool _saving = false;
 
@@ -26,110 +28,10 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
   void dispose() {
     _modeloCtrl.dispose();
     _serialCtrl.dispose();
-    _descCtrl.dispose(); // 👈 NUEVO
-    _caractCtrl.dispose(); // 👈 NUEVO
+    _descripcionCtrl.dispose();
+    _caracteristicasCtrl.dispose();
+    _precioCtrl.dispose();
     super.dispose();
-  }
-
-  String _normId(String s) {
-// Normaliza para IDs: minúsculas, quita símbolos raros, espacios -> "_"
-    final base = s.trim().toLowerCase();
-    final only = base
-        .replaceAll(RegExp(r'[^\p{L}\p{N}\s_-]+', unicode: true), '')
-        .replaceAll(RegExp(r'\s+'), '_');
-    return only.isEmpty ? 'sin_nombre' : only;
-  }
-
-  String _normName(String s) => s.trim();
-
-// Valida "UG767": 2 letras + 3 dígitos (insensible a mayúsculas)
-  bool _validSerialPattern(String s) {
-    final v = s.trim();
-    final regex = RegExp(r'^[A-Za-z]{2}\d{3}$');
-    return regex.hasMatch(v);
-  }
-
-  Future<void> _guardar() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sesión inválida. Inicia sesión nuevamente.')),
-      );
-      return;
-    }
-
-    final modeloNombre = _normName(_modeloCtrl.text); // p.ej. "Castlle"
-    final modeloId = _normId(modeloNombre); // p.ej. "castlle"
-
-    final serialNombre = _serialCtrl.text.trim().toUpperCase(); // guardamos visible en MAYÚSCULAS "UG767"
-    final serialId = _normId(serialNombre); // id doc: "ug767"
-
-// 👇 NUEVO: textos opcionales
-    final descripcion = _descCtrl.text.trim();
-    final caracteristicas = _caractCtrl.text.trim();
-
-    setState(() => _saving = true);
-
-    try {
-      final modelDocRef = FirebaseFirestore.instance
-          .collection('almacen_pdv')
-          .doc(modeloId);
-
-      final equipoDocRef = modelDocRef
-          .collection('equipos')
-          .doc(serialId);
-
-// Evitar duplicados de serial dentro del mismo modelo
-      final exists = await equipoDocRef.get();
-      if (exists.exists) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('El serial $serialNombre ya existe en el modelo "$modeloNombre".')),
-        );
-        return;
-      }
-
-// Crea/actualiza doc del MODELO (padre) con merge
-      final toSetModel = <String, dynamic>{
-        'modelo': modeloNombre,
-        'modelo_id': modeloId,
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-      if (descripcion.isNotEmpty) toSetModel['descripcion'] = descripcion; // 👈 NUEVO
-      if (caracteristicas.isNotEmpty) toSetModel['caracteristicas'] = caracteristicas; // 👈 NUEVO
-
-      await modelDocRef.set(toSetModel, SetOptions(merge: true));
-
-// Crea doc del EQUIPO (subcolección con el serial)
-      await equipoDocRef.set({
-        'modelo': modeloNombre,
-        'modelo_id': modeloId,
-        'serial': serialNombre, // "UG767"
-        'serial_id': serialId, // "ug767"
-        'estado': 'activo',
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': uid,
-      });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Guardado: $modeloNombre → serial $serialNombre')),
-      );
-
-// Limpia solo el serial para cargar otro del mismo modelo
-      _serialCtrl.clear();
-// Si quieres, deja persistentes descripción/características; NO limpio esos campos.
-
-    } on FirebaseException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.message ?? e.code}')),
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
   }
 
   @override
@@ -141,7 +43,10 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
           children: [
 // Header
             Container(
-              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                color: _panelColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               child: Row(
@@ -153,8 +58,12 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
                   ),
                   const Spacer(),
                   const Text(
-                    'Almacén · Añadir equipo nuevo',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white),
+                    'Almacén · Añadir equipos',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -164,91 +73,113 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
             Container(width: double.infinity, height: 8, color: Colors.white),
 
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+              child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 720),
-                  child: Container(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
-                    ),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-// Modelo
-                          TextFormField(
-                            controller: _modeloCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Modelo del punto de venta (ej: Castlle / Unidigital)',
-                              border: OutlineInputBorder(),
+                    child: _card(
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              'Datos del equipo',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                             ),
-                            validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Ingresa el modelo' : null,
-                          ),
-                          const SizedBox(height: 14),
+                            const SizedBox(height: 12),
 
-// 👇 NUEVO: Descripción / Características del MODELO
-                          TextFormField(
-                            controller: _descCtrl,
-                            maxLines: 3,
-                            decoration: const InputDecoration(
-                              labelText: 'Descripción del equipo (opcional)',
-                              hintText: 'Resumen: tamaño, conectividad, etc.',
-                              border: OutlineInputBorder(),
+// Modelo (requerido)
+                            TextFormField(
+                              controller: _modeloCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Modelo del equipo (ej. Castlle, Unidigital)',
+                                border: OutlineInputBorder(),
+                              ),
+                              textCapitalization: TextCapitalization.words,
+                              validator: (v) {
+                                if ((v ?? '').trim().isEmpty) return 'Ingresa el modelo';
+                                return null;
+                              },
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _caractCtrl,
-                            maxLines: 4,
-                            decoration: const InputDecoration(
-                              labelText: 'Características (opcional)',
-                              hintText: 'Ej: WiFi 2.4/5GHz, NFC, batería 5000mAh…',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
+                            const SizedBox(height: 12),
 
-// Serial (2 letras + 3 números, ej: UG767)
-                          TextFormField(
-                            controller: _serialCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Serial (formato: AA999, ej: UG767)',
-                              border: OutlineInputBorder(),
+// Serial (requerido)
+                            TextFormField(
+                              controller: _serialCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Serial (ej. UG767 / UJ78)',
+                                border: OutlineInputBorder(),
+                              ),
+                              textCapitalization: TextCapitalization.characters,
+                              validator: (v) {
+                                final s = (v ?? '').trim();
+                                if (s.isEmpty) return 'Ingresa el serial';
+// Acepta letras y números; ajusta si quieres el patrón estricto.
+                                final ok = RegExp(r'^[A-Za-z0-9\-_.]+$').hasMatch(s);
+                                if (!ok) return 'Serial inválido (solo letras/números - _ .)';
+                                return null;
+                              },
                             ),
-                            textCapitalization: TextCapitalization.characters,
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Ingresa el serial';
-                              }
-                              if (!_validSerialPattern(v)) {
-                                return 'Formato inválido (usa 2 letras + 3 números, ej: UG767)';
-                              }
-                              return null;
-                            },
-                          ),
+                            const SizedBox(height: 12),
 
-                          const SizedBox(height: 22),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: ElevatedButton.icon(
-                              onPressed: _saving ? null : _guardar,
-                              icon: _saving
-                                  ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                                  : const Icon(Icons.save),
-                              label: const Text('Guardar equipo'),
+// Descripción (opcional)
+                            TextFormField(
+                              controller: _descripcionCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Descripción (opcional)',
+                                border: OutlineInputBorder(),
+                              ),
+                              maxLines: 3,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+
+// Características (opcional)
+                            TextFormField(
+                              controller: _caracteristicasCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Características (opcional)',
+                                border: OutlineInputBorder(),
+                              ),
+                              maxLines: 3,
+                            ),
+                            const SizedBox(height: 12),
+
+// Precio (opcional, double)
+                            TextFormField(
+                              controller: _precioCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Precio (opcional, ej. 1250.00)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              validator: (v) {
+                                final raw = (v ?? '').trim();
+                                if (raw.isEmpty) return null; // opcional
+                                final norm = raw.replaceAll(',', '.');
+                                final d = double.tryParse(norm);
+                                if (d == null || d < 0) return 'Precio inválido';
+                                return null;
+                              },
+                            ),
+
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              height: 48,
+                              child: ElevatedButton.icon(
+                                onPressed: _saving ? null : _onSave,
+                                icon: _saving
+                                    ? const SizedBox(
+                                  width: 18, height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                                    : const Icon(Icons.save),
+                                label: Text(_saving ? 'Guardando...' : 'Guardar equipo'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -259,5 +190,109 @@ class _AlmacenAnadirEquiposScreenState extends State<AlmacenAnadirEquiposScreen>
         ),
       ),
     );
+  }
+
+  Widget _card({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
+      ),
+      child: child,
+    );
+  }
+
+  Future<void> _onSave() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sesión inválida. Inicia sesión nuevamente.')),
+      );
+      return;
+    }
+
+    final modeloRaw = _modeloCtrl.text.trim();
+    final modeloId = modeloRaw.toLowerCase(); // id del doc
+    final serial = _serialCtrl.text.trim().toUpperCase();
+    final serialLower = serial.toLowerCase();
+
+    final descripcion = _descripcionCtrl.text.trim();
+    final caracteristicas = _caracteristicasCtrl.text.trim();
+
+// Precio (opcional)
+    double? precio;
+    final precioRaw = _precioCtrl.text.trim();
+    if (precioRaw.isNotEmpty) {
+      final norm = precioRaw.replaceAll(',', '.');
+      precio = double.tryParse(norm);
+    }
+
+    final modelRef = FirebaseFirestore.instance.collection(kAlmacenEquiposRoot).doc(modeloId);
+    final serialRef = modelRef.collection(kSubEquipos).doc(serialLower);
+
+    try {
+// 1) Crear/actualizar el documento del MODELO (merge)
+      final modelSnap = await modelRef.get();
+      final now = FieldValue.serverTimestamp();
+
+      final Map<String, dynamic> baseModel = {
+        'modelo': modeloRaw,
+        'updatedAt': now,
+      };
+
+// Solo incluimos estos campos si vienen con algo (no pisamos con vacío)
+      if (descripcion.isNotEmpty) baseModel['descripcion'] = descripcion;
+      if (caracteristicas.isNotEmpty) baseModel['caracteristicas'] = caracteristicas;
+      if (precio != null) baseModel['precio'] = precio;
+
+      if (!modelSnap.exists) {
+        baseModel['createdAt'] = now;
+      }
+
+      await modelRef.set(baseModel, SetOptions(merge: true));
+
+// 2) Crear el SERIAL si no existe
+      final serialSnap = await serialRef.get();
+      if (serialSnap.exists) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('El serial $serial ya existe para $modeloRaw')),
+        );
+        return;
+      }
+
+      await serialRef.set({
+        'serial': serial,
+        'serial_lower': serialLower,
+        'createdAt': now,
+        'createdBy': uid,
+      });
+
+// 3) Done
+      setState(() => _saving = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Equipo "$modeloRaw" guardado con serial $serial')),
+        );
+// Limpia serial para poder seguir cargando
+        _serialCtrl.clear();
+// Si quieres limpiar todo, descomenta:
+// _modeloCtrl.clear();
+// _descripcionCtrl.clear();
+// _caracteristicasCtrl.clear();
+// _precioCtrl.clear();
+      }
+    } on FirebaseException catch (e) {
+      setState(() => _saving = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')));
+    }
   }
 }
