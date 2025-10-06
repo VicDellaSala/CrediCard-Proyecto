@@ -14,33 +14,27 @@ import 'features/admin/presentation/identity_requests_screen.dart';
 // Operator (panel)
 import 'features/operator/presentation/operator_home_screen.dart';
 
-// Operator > Módulos principales
+// Operator > Ventas / Consultas / Reportes / Banco / Finanzas
 import 'features/operator/ventas/presentation/ventas_screen.dart';
 import 'features/operator/consultas/presentation/consultas_screen.dart';
 import 'features/operator/reportes/presentation/reportes_screen.dart';
 import 'features/operator/banco/presentation/banco_screen.dart';
 import 'features/operator/finanzas/presentation/finanzas_screen.dart';
 
-// Operator > Almacén (menú principal)
+// Operator > Almacén (menú + subpantallas)
 import 'features/operator/almacen/presentation/almacen_screen.dart';
-
-// Almacén > Equipos (menú + subpantallas)
 import 'features/operator/almacen/presentation/almacen_equipos_menu_screen.dart';
+import 'features/operator/almacen/presentation/almacen_tarjetas_screen.dart';
 import 'features/operator/almacen/presentation/almacen_ver_equipos.dart';
 import 'features/operator/almacen/presentation/almacen_anadir_equipos.dart';
-
-// Almacén > Tarjetas (menú + subpantallas)
-import 'features/operator/almacen/presentation/almacen_tarjetas_screen.dart';
-import 'features/operator/almacen/presentation/almacen_ver_tarjetas.dart'
-    show AlmacenVerTarjetasOperadorasScreen;
-import 'features/operator/almacen/presentation/almacen_anadir_tarjeta.dart'
-    show AlmacenAnadirTarjetasOperadorasScreen;
+import 'features/operator/almacen/presentation/almacen_ver_tarjetas.dart';
+import 'features/operator/almacen/presentation/almacen_anadir_tarjeta.dart';
 
 // Supervisor & Usuario
 import 'features/supervisor/presentation/supervisor_home_screen.dart';
 import 'features/user/presentation/user_home_screen.dart';
 
-// Ventas > equipos (destino común)
+// Ventas > equipos (ya existente)
 import 'features/operator/ventas/presentation/ventas_equipos.dart';
 
 // Banco (nuevo rol)
@@ -48,9 +42,10 @@ import 'features/bank/presentation/bank_home_screen.dart';
 import 'features/bank/presentation/bank_inbox_menu_screen.dart';
 import 'features/bank/presentation/bank_inbox_afiliados_screen.dart';
 import 'features/bank/presentation/bank_inbox_terminal_screen.dart';
-// Si más adelante tienes una pantalla real para “procesadas”, impórtala y
-// reemplaza el placeholder de abajo.
-// import 'features/bank/presentation/bank_processed_screen.dart';
+
+// ===== NUEVO: Ventas > Operadoras y Registro de Serial =====
+import 'features/operator/ventas/presentation/ventas_operadoras_screen.dart';
+import 'features/operator/ventas/presentation/ventas_registro_serial_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,19 +89,19 @@ class MyApp extends StatelessWidget {
 
 // Operador > Almacén
         '/operator/almacen': (context) => const AlmacenScreen(),
-
-// Almacén > Equipos
         '/operator/almacen/equipos': (context) => const AlmacenEquiposMenuScreen(),
+        '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasOperadorasScreen(),
         '/operator/almacen/ver': (context) => const AlmacenVerEquiposScreen(),
         '/operator/almacen/anadir': (context) => const AlmacenAnadirEquiposScreen(),
-
-// Almacén > Tarjetas
-        '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasOperadorasScreen(),
         '/operator/almacen/tarjetas/ver': (context) => const AlmacenVerTarjetasOperadorasScreen(),
         '/operator/almacen/tarjetas/add': (context) => const AlmacenAnadirTarjetasOperadorasScreen(),
 
-// Ventas > Equipos
+// Ventas > Equipos (modelo)
         '/ventas/equipos': (context) => const VentasEquiposScreen(),
+
+// ===== NUEVO: Ventas > Operadoras y Registro de Serial =====
+        '/ventas/operadoras': (context) => const VentasOperadorasScreen(),
+        '/ventas/operadoras/serial': (context) => const VentasRegistroSerialScreen(),
 
 // Banco
         '/bank': (context) => const BankHomeScreen(),

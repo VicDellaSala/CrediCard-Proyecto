@@ -199,6 +199,7 @@ class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
       body: SafeArea(
         child: Column(
           children: [
+// Header
             Container(
               decoration: BoxDecoration(
                 color: _panelColor,
@@ -229,6 +230,7 @@ class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
             ),
             Container(width: double.infinity, height: 8, color: Colors.white),
 
+// --------- SCROLL DE PÁGINA COMPLETA ----------
             FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               future: _modelRef.get(),
               builder: (context, modelSnap) {
@@ -245,7 +247,7 @@ class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
                   );
                 }
 
-                final doc = modelSnap.data; // propiedad, no método
+                final doc = modelSnap.data;
                 final mdata = doc?.data() ?? <String, dynamic>{};
 
                 final String descripcion = (mdata['descripcion'] ?? '').toString();
@@ -254,163 +256,178 @@ class _ModeloDetalleScreenState extends State<_ModeloDetalleScreen> {
                 final String precioStr =
                 (precioNum == null) ? '—' : _formatMoneda(precioNum.toDouble());
 
+// Usamos SingleChildScrollView + ConstrainedBox
                 return Expanded(
-                  child: Column(
-                    children: [
-// Tarjeta de info (Descripción, Características, Precio)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _rowLabelValue(
-                                context: context,
-                                label: 'Descripción',
-                                value: descripcion.isEmpty ? '—' : descripcion,
-                                onEdit: () => _editTextField(
-                                  title: 'Editar descripción',
-                                  initial: descripcion,
-                                  fieldKey: 'descripcion',
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              _rowLabelValue(
-                                context: context,
-                                label: 'Características',
-                                value: caracteristicas.isEmpty ? '—' : caracteristicas,
-                                onEdit: () => _editTextField(
-                                  title: 'Editar características',
-                                  initial: caracteristicas,
-                                  fieldKey: 'caracteristicas',
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              _rowLabelValue(
-                                context: context,
-                                label: 'Precio',
-                                value: precioStr,
-                                onEdit: () => _editPriceField(
-                                  title: 'Editar precio',
-                                  initialNumber: precioNum?.toDouble(),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-// Lista de seriales
-                      Expanded(
-                        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                          stream: _serialsRef.snapshots(),
-                          builder: (context, snap) {
-                            if (snap.connectionState == ConnectionState.waiting) {
-                              return const Center(child: CircularProgressIndicator());
-                            }
-                            if (snap.hasError) {
-                              return Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Text('Error: ${snap.error}'),
-                              );
-                            }
-
-                            final serialDocs = snap.data?.docs ?? const [];
-                            final items = serialDocs
-                                .map((d) => d.data())
-                                .toList()
-                              ..sort((a, b) {
-                                final sa = (a['serial_lower'] ?? a['serial'] ?? '').toString();
-                                final sb = (b['serial_lower'] ?? b['serial'] ?? '').toString();
-                                return sa.compareTo(sb);
-                              });
-
-                            return ListView.separated(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: items.isEmpty ? 1 : items.length + 1,
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
-                              itemBuilder: (_, i) {
-// Primer “card” de acciones: eliminar serial
-                                if (i == 0) {
-                                  return _card(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        const Text(
-                                          'Acciones de seriales',
-                                          style: TextStyle(fontWeight: FontWeight.w700),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        OutlinedButton.icon(
-                                          onPressed: _onDeleteSerial,
-                                          icon: const Icon(Icons.delete_outline),
-                                          label: const Text('Eliminar serial'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
-
-// Lista de seriales
-                                if (items.isEmpty) {
-                                  return _card(
-                                    child: const Text(
-                                      'No hay seriales cargados para este modelo.',
-                                    ),
-                                  );
-                                }
-
-                                final s = items[i - 1];
-                                final serial = (s['serial'] ?? '').toString();
-                                final createdAt = (s['createdAt'] as Timestamp?)?.toDate();
-
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Colors.black12,
-                                        blurRadius: 6,
-                                        offset: Offset(0, 3),
-                                      ),
-                                    ],
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 900),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+// Tarjeta info
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _rowLabelValue(
+                                  context: context,
+                                  label: 'Descripción',
+                                  value: descripcion.isEmpty ? '—' : descripcion,
+                                  onEdit: () => _editTextField(
+                                    title: 'Editar descripción',
+                                    initial: descripcion,
+                                    fieldKey: 'descripcion',
                                   ),
+                                ),
+                                const SizedBox(height: 8),
+                                _rowLabelValue(
+                                  context: context,
+                                  label: 'Características',
+                                  value: caracteristicas.isEmpty ? '—' : caracteristicas,
+                                  onEdit: () => _editTextField(
+                                    title: 'Editar características',
+                                    initial: caracteristicas,
+                                    fieldKey: 'caracteristicas',
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                _rowLabelValue(
+                                  context: context,
+                                  label: 'Precio',
+                                  value: precioStr,
+                                  onEdit: () => _editPriceField(
+                                    title: 'Editar precio',
+                                    initialNumber: precioNum?.toDouble(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+// Acciones de seriales (eliminar)
+                          _card(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  'Acciones de seriales',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 10),
+                                OutlinedButton.icon(
+                                  onPressed: _onDeleteSerial,
+                                  icon: const Icon(Icons.delete_outline),
+                                  label: const Text('Eliminar serial'),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+// Lista de seriales (NO scroll interno)
+                          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                            stream: _serialsRef.snapshots(),
+                            builder: (context, snap) {
+                              if (snap.connectionState == ConnectionState.waiting) {
+                                return _card(
                                   child: Row(
-                                    children: [
-                                      const Icon(Icons.confirmation_number_outlined),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          serial.isEmpty ? '(sin serial)' : serial,
-                                          style: const TextStyle(fontSize: 16),
-                                        ),
+                                    children: const [
+                                      SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
                                       ),
-                                      if (createdAt != null)
-                                        Text(
-                                          '${createdAt.toLocal()}',
-                                          style: const TextStyle(fontSize: 12, color: Colors.black54),
-                                        ),
+                                      SizedBox(width: 10),
+                                      Text('Cargando seriales…'),
                                     ],
                                   ),
                                 );
-                              },
-                            );
-                          },
-                        ),
+                              }
+                              if (snap.hasError) {
+                                return _card(child: Text('Error: ${snap.error}'));
+                              }
+
+                              final serialDocs = snap.data?.docs ?? const [];
+                              final items = serialDocs
+                                  .map((d) => d.data())
+                                  .toList()
+                                ..sort((a, b) {
+                                  final sa = (a['serial_lower'] ?? a['serial'] ?? '').toString();
+                                  final sb = (b['serial_lower'] ?? b['serial'] ?? '').toString();
+                                  return sa.compareTo(sb);
+                                });
+
+                              if (items.isEmpty) {
+                                return _card(
+                                  child:
+                                  const Text('No hay seriales cargados para este modelo.'),
+                                );
+                              }
+
+                              return ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: items.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                itemBuilder: (_, i) {
+                                  final s = items[i];
+                                  final serial = (s['serial'] ?? '').toString();
+                                  final createdAt =
+                                  (s['createdAt'] as Timestamp?)?.toDate();
+
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Colors.black12,
+                                          blurRadius: 6,
+                                          offset: Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.confirmation_number_outlined),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            serial.isEmpty ? '(sin serial)' : serial,
+                                            style: const TextStyle(fontSize: 16),
+                                          ),
+                                        ),
+                                        if (createdAt != null)
+                                          Text(
+                                            '${createdAt.toLocal()}',
+                                            style: const TextStyle(
+                                                fontSize: 12, color: Colors.black54),
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 );
               },
