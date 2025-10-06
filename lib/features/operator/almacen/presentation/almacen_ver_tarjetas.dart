@@ -202,8 +202,7 @@ class _LineaDetalleScreenState extends State<_LineaDetalleScreen> {
             final lineaData = lineSnap.data?.data() ?? {};
             final plan1Title = (lineaData['plan1_title'] ?? '').toString();
             final plan1Desc = (lineaData['plan1_desc'] ?? '').toString();
-            final plan1PriceAny = lineaData['plan1_price'];
-            final plan1Price = _asDouble(plan1PriceAny);
+            final plan1Price = _asDouble(lineaData['plan1_price']);
 
             final plan2Title = (lineaData['plan2_title'] ?? '').toString();
             final plan2Desc = (lineaData['plan2_desc'] ?? '').toString();
@@ -246,182 +245,178 @@ class _LineaDetalleScreenState extends State<_LineaDetalleScreen> {
                 ),
                 Container(width: double.infinity, height: 8, color: Colors.white),
 
+// SCROLL GENERAL SOBRE TODO EL CONTENIDO
                 Expanded(
-                  child: Column(
-                    children: [
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
 // ---- Tarjeta de Planes ----
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: _card(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.list_alt_outlined),
-                                  const SizedBox(width: 8),
-                                  const Expanded(
-                                    child: Text(
-                                      'Planes de la línea',
-                                      style: TextStyle(fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                                  TextButton.icon(
-                                    onPressed: () => _onEditPlanes(
-                                      plan1Title: plan1Title,
-                                      plan1Desc: plan1Desc,
-                                      plan1Price: plan1Price,
-                                      plan2Title: plan2Title,
-                                      plan2Desc: plan2Desc,
-                                      plan2Price: plan2Price,
-                                      plan3Title: plan3Title,
-                                      plan3Desc: plan3Desc,
-                                      plan3Price: plan3Price,
-                                    ),
-                                    icon: const Icon(Icons.edit_outlined),
-                                    label: const Text('Editar planes'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              _planTile(context, 'Plan 1 (obligatorio)', plan1Title, plan1Desc, plan1Price),
-                              const SizedBox(height: 8),
-                              if (plan2Title.isNotEmpty || plan2Desc.isNotEmpty || plan2Price != null)
-                                _planTile(context, 'Plan 2', plan2Title, plan2Desc, plan2Price),
-                              if (plan2Title.isNotEmpty || plan2Desc.isNotEmpty || plan2Price != null)
-                                const SizedBox(height: 8),
-                              if (plan3Title.isNotEmpty || plan3Desc.isNotEmpty || plan3Price != null)
-                                _planTile(context, 'Plan 3', plan3Title, plan3Desc, plan3Price),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-// ---- Lista de Seriales ----
-                      Expanded(
-                        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                          stream: _serialsRef.snapshots(),
-                          builder: (context, snap) {
-                            if (snap.connectionState == ConnectionState.waiting) {
-                              return const Center(child: CircularProgressIndicator());
-                            }
-                            if (snap.hasError) {
-                              return Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Text('Error: ${snap.error}'),
-                              );
-                            }
-
-                            final serialDocs = snap.data?.docs ?? const [];
-                            if (serialDocs.isEmpty) {
-                              return Column(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: _card(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                                        children: [
-                                          const Text(
-                                            'Acciones de seriales',
-                                            style: TextStyle(fontWeight: FontWeight.w700),
-                                          ),
-                                          const SizedBox(height: 10),
-                                          OutlinedButton.icon(
-                                            onPressed: _onDeleteSerial,
-                                            icon: const Icon(Icons.delete_outline),
-                                            label: const Text('Eliminar serial'),
-                                          ),
-                                        ],
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: _card(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.list_alt_outlined),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        'Planes de la línea',
+                                        style: TextStyle(fontWeight: FontWeight.w700),
                                       ),
                                     ),
-                                  ),
-                                  const Expanded(
-                                    child: Center(
-                                      child: Text('No hay seriales cargados para esta línea.'),
+                                    TextButton.icon(
+                                      onPressed: () => _onEditPlanes(
+                                        plan1Title: plan1Title,
+                                        plan1Desc: plan1Desc,
+                                        plan1Price: plan1Price,
+                                        plan2Title: plan2Title,
+                                        plan2Desc: plan2Desc,
+                                        plan2Price: plan2Price,
+                                        plan3Title: plan3Title,
+                                        plan3Desc: plan3Desc,
+                                        plan3Price: plan3Price,
+                                      ),
+                                      icon: const Icon(Icons.edit_outlined),
+                                      label: const Text('Editar planes'),
                                     ),
-                                  ),
-                                ],
-                              );
-                            }
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                _planTile(context, 'Plan 1 (obligatorio)', plan1Title, plan1Desc, plan1Price),
+                                const SizedBox(height: 8),
+                                if (plan2Title.isNotEmpty || plan2Desc.isNotEmpty || plan2Price != null)
+                                  _planTile(context, 'Plan 2', plan2Title, plan2Desc, plan2Price),
+                                if (plan2Title.isNotEmpty || plan2Desc.isNotEmpty || plan2Price != null)
+                                  const SizedBox(height: 8),
+                                if (plan3Title.isNotEmpty || plan3Desc.isNotEmpty || plan3Price != null)
+                                  _planTile(context, 'Plan 3', plan3Title, plan3Desc, plan3Price),
+                              ],
+                            ),
+                          ),
+                        ),
 
-                            final items = serialDocs
-                                .map((d) => d.data())
-                                .toList()
-                              ..sort((a, b) {
-                                final sa = (a['serial_lower'] ?? a['serial'] ?? '').toString();
-                                final sb = (b['serial_lower'] ?? b['serial'] ?? '').toString();
-                                return sa.compareTo(sb);
-                              });
+                        const SizedBox(height: 12),
 
-                            return ListView.separated(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: items.length + 1, // +1 tarjeta de acciones arriba
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
-                              itemBuilder: (_, i) {
-                                if (i == 0) {
-                                  return _card(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        const Text(
-                                          'Acciones de seriales',
-                                          style: TextStyle(fontWeight: FontWeight.w700),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        OutlinedButton.icon(
-                                          onPressed: _onDeleteSerial,
-                                          icon: const Icon(Icons.delete_outline),
-                                          label: const Text('Eliminar serial'),
-                                        ),
-                                      ],
-                                    ),
+// ---- Lista de Seriales ----
+// Usamos un StreamBuilder y envolvemos la Lista en un SizedBox para que
+// pueda renderizarse dentro del SingleChildScrollView sin desbordar.
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: _card(
+                            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                              stream: _serialsRef.snapshots(),
+                              builder: (context, snap) {
+                                if (snap.connectionState == ConnectionState.waiting) {
+                                  return const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Center(child: CircularProgressIndicator()),
+                                  );
+                                }
+                                if (snap.hasError) {
+                                  return Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Text('Error: ${snap.error}'),
                                   );
                                 }
 
-                                final s = items[i - 1];
-                                final serial = (s['serial'] ?? '').toString();
-                                final createdAt = (s['createdAt'] as Timestamp?)?.toDate();
-
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Colors.black12,
-                                        blurRadius: 6,
-                                        offset: Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
+                                final serialDocs = snap.data?.docs ?? const [];
+                                if (serialDocs.isEmpty) {
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
-                                      const Icon(Icons.confirmation_number_outlined),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          serial.isEmpty ? '(sin serial)' : serial,
-                                          style: const TextStyle(fontSize: 16),
-                                        ),
+                                      const Text(
+                                        'Acciones de seriales',
+                                        style: TextStyle(fontWeight: FontWeight.w700),
                                       ),
-                                      if (createdAt != null)
-                                        Text(
-                                          '${createdAt.toLocal()}',
-                                          style: const TextStyle(fontSize: 12, color: Colors.black54),
-                                        ),
+                                      const SizedBox(height: 10),
+                                      OutlinedButton.icon(
+                                        onPressed: _onDeleteSerial,
+                                        icon: const Icon(Icons.delete_outline),
+                                        label: const Text('Eliminar serial'),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const Center(
+                                        child: Text('No hay seriales cargados para esta línea.'),
+                                      ),
                                     ],
-                                  ),
+                                  );
+                                }
+
+                                final items = serialDocs
+                                    .map((d) => d.data())
+                                    .toList()
+                                  ..sort((a, b) {
+                                    final sa = (a['serial_lower'] ?? a['serial'] ?? '').toString();
+                                    final sb = (b['serial_lower'] ?? b['serial'] ?? '').toString();
+                                    return sa.compareTo(sb);
+                                  });
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    const Text(
+                                      'Acciones de seriales',
+                                      style: TextStyle(fontWeight: FontWeight.w700),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    OutlinedButton.icon(
+                                      onPressed: _onDeleteSerial,
+                                      icon: const Icon(Icons.delete_outline),
+                                      label: const Text('Eliminar serial'),
+                                    ),
+                                    const SizedBox(height: 12),
+// Lista de seriales (no scroll propio; hereda el scroll padre)
+                                    ...List.generate(items.length, (i) {
+                                      final s = items[i];
+                                      final serial = (s['serial'] ?? '').toString();
+                                      final createdAt = (s['createdAt'] as Timestamp?)?.toDate();
+
+                                      return Container(
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Colors.black12,
+                                              blurRadius: 6,
+                                              offset: Offset(0, 3),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.confirmation_number_outlined),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                serial.isEmpty ? '(sin serial)' : serial,
+                                                style: const TextStyle(fontSize: 16),
+                                              ),
+                                            ),
+                                            if (createdAt != null)
+                                              Text(
+                                                '${createdAt.toLocal()}',
+                                                style: const TextStyle(fontSize: 12, color: Colors.black54),
+                                              ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                  ],
                                 );
                               },
-                            );
-                          },
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -606,7 +601,7 @@ class _LineaDetalleScreenState extends State<_LineaDetalleScreen> {
       'plan1_title': res.p1Title.trim(),
       'plan1_desc': res.p1Desc.trim(),
       'plan1_price': res.p1Price,
-// opcionales (si están vacíos, los guardo como vacío/null sin problema)
+// opcionales
       'plan2_title': res.p2Title.trim(),
       'plan2_desc': res.p2Desc.trim(),
       'plan2_price': res.p2Price,
