@@ -30,7 +30,7 @@ import 'features/operator/almacen/presentation/almacen_tarjetas_screen.dart';
 import 'features/operator/almacen/presentation/almacen_ver_equipos.dart';
 import 'features/operator/almacen/presentation/almacen_anadir_equipos.dart';
 
-// Tarjetas (ver / añadir) — OJO: archivo en singular para “añadir”
+// Tarjetas (ver / añadir) — archivo en singular para “añadir”
 import 'features/operator/almacen/presentation/almacen_ver_tarjetas.dart';
 import 'features/operator/almacen/presentation/almacen_anadir_tarjeta.dart';
 
@@ -44,6 +44,15 @@ import 'features/operator/ventas/presentation/ventas_equipos.dart';
 // Ventas > Operadoras (selección de plan) + Registro de serial
 import 'features/operator/ventas/presentation/ventas_operadoras_screen.dart';
 import 'features/operator/ventas/presentation/ventas_registro_serial_screen.dart';
+
+// ===== Plan de pago + flujos =====
+import 'features/operator/ventas/presentation/ventas_plan_de_pago_screen.dart';
+import 'features/operator/ventas/presentation/ventas_comodato.dart';
+import 'features/operator/ventas/presentation/ventas_contado_financiado.dart';
+
+// ===== NUEVO: pago por transferencia + chequeo =====
+import 'features/operator/ventas/presentation/ventas_transferencia_bancaria.dart';
+import 'features/operator/ventas/presentation/ventas_chequeo.dart';
 
 // Banco (nuevo rol)
 import 'features/bank/presentation/bank_home_screen.dart';
@@ -101,15 +110,29 @@ class MyApp extends StatelessWidget {
         '/operator/almacen/anadir': (context) => const AlmacenAnadirEquiposScreen(),
 
 // Tarjetas de operadoras
-        '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasOperadorasScreen(),
-        '/operator/almacen/tarjetas/ver': (context) => const AlmacenVerTarjetasOperadorasScreen(),
-        '/operator/almacen/tarjetas/add': (context) => const AlmacenAnadirTarjetasOperadorasScreen(),
+        '/operator/almacen/tarjetas': (context) =>
+        const AlmacenTarjetasOperadorasScreen(),
+        '/operator/almacen/tarjetas/ver': (context) =>
+        const AlmacenVerTarjetasOperadorasScreen(),
+        '/operator/almacen/tarjetas/add': (context) =>
+        const AlmacenAnadirTarjetasOperadorasScreen(),
 
 // Ventas > Equipos (lista de modelos)
         '/ventas/equipos': (context) => const VentasEquiposScreen(),
 
 // Ventas > Operadoras (selección de plan)
         '/ventas/operadoras': (context) => const VentasOperadorasScreen(),
+
+// Plan de pago + flujos
+        '/ventas/plan': (context) => const VentasPlanDePagoScreen(),
+        '/ventas/plan/comodato': (context) => const VentasComodatoScreen(),
+        '/ventas/plan/contado-financiado': (context) =>
+        const VentasContadoFinanciadoScreen(),
+
+// NUEVO: transferencia bancaria y chequeo
+        '/ventas/pago/transferencia': (context) =>
+        const VentasTransferenciaBancariaScreen(),
+        '/ventas/chequeo': (context) => const VentasChequeoScreen(rif: '',),
 
 // Banco
         '/bank': (context) => const BankHomeScreen(),
@@ -119,13 +142,11 @@ class MyApp extends StatelessWidget {
         '/bank/processed': (context) => const _BankProcessedPlaceholder(),
       },
 
-// ⚠️ AQUÍ está la clave: esta función permite
-// construir la pantalla con los ARGUMENTOS que envías.
+// Construir Registro de Serial con argumentos (sin tocar)
       onGenerateRoute: (settings) {
         if (settings.name == '/ventas/operadoras/serial') {
           final a = (settings.arguments ?? {}) as Map<String, dynamic>;
 
-// Si algo vino nulo, evitamos el crash y mostramos un placeholder simple:
           String _s(key) => (a[key] ?? '').toString();
           int _i(key) => int.tryParse('${a[key]}') ?? 0;
 
