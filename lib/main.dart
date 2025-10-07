@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:proyectocredicard/features/operator/almacen/presentation/almacen_anadir_tarjeta.dart';
-import 'firebase_options.dart'; // generado por `flutterfire configure`
+import 'firebase_options.dart';
 
 // Landing & Auth
 import 'features/landing/presentation/landing_screen.dart';
@@ -15,37 +14,43 @@ import 'features/admin/presentation/identity_requests_screen.dart';
 // Operator (panel)
 import 'features/operator/presentation/operator_home_screen.dart';
 
-// Operator > Ventas / Consultas / Reportes / Banco / Finanzas
+// Operator > módulos
 import 'features/operator/ventas/presentation/ventas_screen.dart';
 import 'features/operator/consultas/presentation/consultas_screen.dart';
 import 'features/operator/reportes/presentation/reportes_screen.dart';
 import 'features/operator/banco/presentation/banco_screen.dart';
 import 'features/operator/finanzas/presentation/finanzas_screen.dart';
 
-// Operator > Almacén
+// Operator > Almacén (menú + subpantallas)
 import 'features/operator/almacen/presentation/almacen_screen.dart';
 import 'features/operator/almacen/presentation/almacen_equipos_menu_screen.dart';
 import 'features/operator/almacen/presentation/almacen_tarjetas_screen.dart';
+
+// Equipos (ver / añadir)
 import 'features/operator/almacen/presentation/almacen_ver_equipos.dart';
 import 'features/operator/almacen/presentation/almacen_anadir_equipos.dart';
+
+// Tarjetas (ver / añadir) — OJO: archivo en singular para “añadir”
 import 'features/operator/almacen/presentation/almacen_ver_tarjetas.dart';
 import 'features/operator/almacen/presentation/almacen_anadir_tarjeta.dart';
-
-// Ventas
-import 'features/operator/ventas/presentation/ventas_equipos.dart';
-import 'features/operator/ventas/presentation/ventas_operadoras_screen.dart';
-import 'features/operator/ventas/presentation/ventas_registro_serial_screen.dart';
-import 'features/operator/ventas/presentation/ventas_plan_de_pago_screen.dart';
 
 // Supervisor & Usuario
 import 'features/supervisor/presentation/supervisor_home_screen.dart';
 import 'features/user/presentation/user_home_screen.dart';
+
+// Ventas > equipos (modelos disponibles)
+import 'features/operator/ventas/presentation/ventas_equipos.dart';
+
+// Ventas > Operadoras (selección de plan) + Registro de serial
+import 'features/operator/ventas/presentation/ventas_operadoras_screen.dart';
+import 'features/operator/ventas/presentation/ventas_registro_serial_screen.dart';
 
 // Banco (nuevo rol)
 import 'features/bank/presentation/bank_home_screen.dart';
 import 'features/bank/presentation/bank_inbox_menu_screen.dart';
 import 'features/bank/presentation/bank_inbox_afiliados_screen.dart';
 import 'features/bank/presentation/bank_inbox_terminal_screen.dart';
+// import 'features/bank/presentation/bank_processed_screen.dart'; // si ya la tienes
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,7 +75,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
 
-// Rutas según rol
+// Rutas por rol
         '/home': (context) => const UserHomeScreen(), // fallback
         '/user': (context) => const UserHomeScreen(),
         '/supervisor': (context) => const SupervisorHomeScreen(),
@@ -87,61 +92,57 @@ class MyApp extends StatelessWidget {
         '/operator/banco': (context) => const BancoScreen(),
         '/operator/finanzas': (context) => const FinanzasScreen(),
 
-// Operador > Almacén
+// Operador > Almacén (menú y sub-rutas)
         '/operator/almacen': (context) => const AlmacenScreen(),
         '/operator/almacen/equipos': (context) => const AlmacenEquiposMenuScreen(),
-        '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasOperadorasScreen(),
+
+// Equipos
         '/operator/almacen/ver': (context) => const AlmacenVerEquiposScreen(),
         '/operator/almacen/anadir': (context) => const AlmacenAnadirEquiposScreen(),
-        '/operator/almacen/ver-tarjetas': (context) => const AlmacenVerTarjetasOperadorasScreen(),
-        '/operator/almacen/anadir-tarjetas': (context) => const AlmacenAnadirTarjetasOperadorasScreen(),
 
-// Ventas
+// Tarjetas de operadoras
+        '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasOperadorasScreen(),
+        '/operator/almacen/tarjetas/ver': (context) => const AlmacenVerTarjetasOperadorasScreen(),
+        '/operator/almacen/tarjetas/add': (context) => const AlmacenAnadirTarjetasOperadorasScreen(),
+
+// Ventas > Equipos (lista de modelos)
         '/ventas/equipos': (context) => const VentasEquiposScreen(),
+
+// Ventas > Operadoras (selección de plan)
         '/ventas/operadoras': (context) => const VentasOperadorasScreen(),
+
+// Banco
+        '/bank': (context) => const BankHomeScreen(),
+        '/bank/inbox-menu': (context) => const BankInboxMenuScreen(),
+        '/bank/inbox/afiliados': (context) => const BankInboxAfiliadosScreen(),
+        '/bank/inbox/terminal': (context) => const BankInboxTerminalScreen(),
+        '/bank/processed': (context) => const _BankProcessedPlaceholder(),
       },
 
-// 🔹 AQUI ESTA EL onGenerateRoute actualizado
+// ⚠️ AQUÍ está la clave: esta función permite
+// construir la pantalla con los ARGUMENTOS que envías.
       onGenerateRoute: (settings) {
         if (settings.name == '/ventas/operadoras/serial') {
-          final a = settings.arguments as Map<String, dynamic>?;
+          final a = (settings.arguments ?? {}) as Map<String, dynamic>;
 
-// Si no llegaron argumentos, mostramos aviso
-          if (a == null || a.isEmpty) {
-            return MaterialPageRoute(builder: (_) => const _ArgsMissingScreen());
-          }
-
-// Lectura segura de argumentos
-          final String rif = a['rif']?.toString() ?? '';
-          final String lineaId = a['lineaId']?.toString() ?? '';
-          final String lineaName = a['lineaName']?.toString() ?? '';
-          final String planTitle = a['planTitle']?.toString() ?? '';
-          final String planDesc = a['planDesc']?.toString() ?? '';
-          final String planPrice = a['planPrice']?.toString() ?? '';
-          final String? modeloSel = a['modeloSeleccionado']?.toString();
-
-// planIndex puede venir como int o String -> normalizamos
-          final dynamic idx = a['planIndex'];
-          final int planIndex = (idx is int)
-              ? idx
-              : int.tryParse(idx?.toString() ?? '') ?? 0;
+// Si algo vino nulo, evitamos el crash y mostramos un placeholder simple:
+          String _s(key) => (a[key] ?? '').toString();
+          int _i(key) => int.tryParse('${a[key]}') ?? 0;
 
           return MaterialPageRoute(
             builder: (_) => VentasRegistroSerialScreen(
-              rif: rif,
-              lineaId: lineaId,
-              lineaName: lineaName,
-              planIndex: planIndex,
-              planTitle: planTitle,
-              planDesc: planDesc,
-              planPrice: planPrice,
-              modeloSeleccionado: modeloSel,
+              rif: _s('rif'),
+              lineaId: _s('lineaId'),
+              lineaName: _s('lineaName'),
+              planIndex: _i('planIndex'),
+              planTitle: _s('planTitle'),
+              planDesc: _s('planDesc'),
+              planPrice: _s('planPrice'),
+              modeloSeleccionado: a['modeloSeleccionado'] as String?,
             ),
           );
         }
-
-// Otras rutas siguen su flujo normal
-        return null;
+        return null; // el resto lo gestiona `routes: {}`
       },
     );
   }
@@ -157,25 +158,6 @@ class _BankProcessedPlaceholder extends StatelessWidget {
       appBar: AppBar(title: const Text('Solicitudes procesadas')),
       body: const Center(
         child: Text('Aquí irán las solicitudes procesadas del banco'),
-      ),
-    );
-  }
-}
-
-// 🔹 Pantalla mostrada si no llegaron argumentos
-class _ArgsMissingScreen extends StatelessWidget {
-  const _ArgsMissingScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Faltan datos')),
-      body: const Center(
-        child: Text(
-          'No llegaron argumentos para el registro de serial.\n'
-              'Vuelve y selecciona un plan nuevamente.',
-          textAlign: TextAlign.center,
-        ),
       ),
     );
   }
