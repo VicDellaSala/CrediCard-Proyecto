@@ -251,15 +251,15 @@ class _ModeloCard extends StatelessWidget {
             height: 44,
             child: ElevatedButton(
               onPressed: () {
-                Navigator.push(
+// 🔧 Cambio mínimo: ahora va a /ventas/operadoras
+                Navigator.pushNamed(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => _ElegirOperadoraPlaceholder(
-                      modeloId: modeloId,
-                      nombre: nombre,
-                      precio: precio,
-                    ),
-                  ),
+                  '/ventas/operadoras',
+                  arguments: {
+                    'modeloSeleccionado': nombre,
+                    'modeloId': modeloId,
+                    'precio': precio,
+                  },
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -306,4 +306,3 @@ class _ElegirOperadoraPlaceholder extends StatelessWidget {
     );
   }
 }
-
