@@ -35,6 +35,7 @@ import 'features/operator/almacen/presentation/almacen_anadir_tarjeta.dart';
 import 'features/operator/ventas/presentation/ventas_equipos.dart';
 import 'features/operator/ventas/presentation/ventas_operadoras_screen.dart';
 import 'features/operator/ventas/presentation/ventas_registro_serial_screen.dart';
+import 'features/operator/ventas/presentation/ventas_plan_de_pago_screen.dart';
 
 // Supervisor & Usuario
 import 'features/supervisor/presentation/supervisor_home_screen.dart';
