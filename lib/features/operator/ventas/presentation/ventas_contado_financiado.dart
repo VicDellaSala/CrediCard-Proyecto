@@ -1,29 +1,122 @@
 import 'package:flutter/material.dart';
 
-/// Contado / Financiado
-/// - Transferencia Bancaria -> '/ventas/transferencia' ✅
-/// - Punto de Venta -> (placeholder por ahora)
-/// - Efectivo en Tienda -> (placeholder por ahora)
-class VentasContadoFinanciadoScreen extends StatelessWidget {
-  const VentasContadoFinanciadoScreen({super.key, this.arguments});
+class VentasContadoFinanciadoScreen extends StatefulWidget {
+  const VentasContadoFinanciadoScreen({super.key});
 
-  final Map<String, dynamic>? arguments;
+  @override
+  State<VentasContadoFinanciadoScreen> createState() =>
+      _VentasContadoFinanciadoScreenState();
+}
 
+class _VentasContadoFinanciadoScreenState
+    extends State<VentasContadoFinanciadoScreen> {
   static const _panelColor = Color(0xFFAED6D8);
+
+  bool _loaded = false;
+
+// Datos que llegan por arguments desde /ventas/registro-serial
+  String _rif = '';
+  String _lineaId = '';
+  String _lineaName = '';
+  int _planIndex = 0;
+  String _planTitle = '';
+  String _planDesc = '';
+  String _planPriceStr = '0';
+  String? _modelo;
+  String? _serialEquipo;
+  String? _serialSim;
+  String _posPriceStr = '0';
+
+  double get _planPrice => _asDouble(_planPriceStr);
+  double get _posPrice => _asDouble(_posPriceStr);
+  double get _total => _planPrice + _posPrice;
+
+// --- lee arguments en didChangeDependencies (NO en initState) ---
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loaded) return;
+
+    final args =
+    ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+    _rif = (args?['rif'] ?? '').toString();
+    _lineaId = (args?['lineaId'] ?? '').toString();
+    _lineaName = (args?['lineaName'] ?? '').toString();
+
+    _planIndex = _tryParseInt(args?['planIndex']) ?? 0;
+    _planTitle = (args?['planTitle'] ?? '').toString();
+    _planDesc = (args?['planDesc'] ?? '').toString();
+    _planPriceStr = (args?['planPrice'] ?? '0').toString();
+
+    _modelo = (args?['modeloSeleccionado'])?.toString();
+    _serialEquipo = (args?['serialEquipo'])?.toString();
+    _serialSim = (args?['serialSim'])?.toString();
+    _posPriceStr = (args?['posPrice'] ?? '0').toString();
+
+    _loaded = true;
+// no necesito setState aquí; pero si quieres que reactive el build inicial:
+    setState(() {});
+  }
+
+// Helpers de parseo robusto
+  static int? _tryParseInt(dynamic v) {
+    if (v is int) return v;
+    if (v is String) return int.tryParse(v.trim());
+    return null;
+  }
+
+  static double _asDouble(String raw) {
+// Quita $ y espacios, cambia coma por punto, luego parsea
+    final cleaned =
+    raw.replaceAll('\$', '').replaceAll('USD', '').replaceAll('Bs', '').replaceAll(',', '.').trim();
+    return double.tryParse(cleaned) ?? 0.0;
+  }
+
+// Navegaciones
+  void _goTransferencia() {
+    Navigator.pushNamed(
+      context,
+      '/ventas/transferencia-bancaria', // <-- ajusta si tu ruta es distinta
+      arguments: {
+        'rif': _rif,
+        'lineaId': _lineaId,
+        'lineaName': _lineaName,
+        'planIndex': _planIndex,
+        'planTitle': _planTitle,
+        'planDesc': _planDesc,
+        'planPrice': _planPrice.toStringAsFixed(2),
+        'modeloSeleccionado': _modelo,
+        'posPrice': _posPrice.toStringAsFixed(2),
+        'total': _total.toStringAsFixed(2),
+        'serialEquipo': _serialEquipo,
+        'serialSim': _serialSim,
+      },
+    );
+  }
+
+  void _goPuntoDeVenta() {
+// TODO: implementa cuando tengas la pantalla
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pantalla de Punto de Venta (pendiente).')),
+    );
+  }
+
+  void _goEfectivo() {
+// TODO: implementa cuando tengas la pantalla
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pantalla de Efectivo (pendiente).')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-// Recojo y mantengo cualquier info que venga del flujo (rif, modelo, plan, etc.)
-    final args = arguments ??
-        (ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
-            {});
-
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       body: SafeArea(
         child: Column(
           children: [
-// Header con el look&feel del proyecto
+// Header celestito
             Container(
               decoration: BoxDecoration(
                 color: _panelColor,
@@ -39,19 +132,13 @@ class VentasContadoFinanciadoScreen extends StatelessWidget {
                     tooltip: 'Volver',
                   ),
                   const Spacer(),
-                  const Row(
-                    children: [
-                      Icon(Icons.account_balance_wallet, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text(
-                        'Contado / Financiado',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Contado / Financiado',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -60,66 +147,98 @@ class VentasContadoFinanciadoScreen extends StatelessWidget {
             ),
             Container(width: double.infinity, height: 8, color: Colors.white),
 
-// Contenido desplazable y centrado
+// Contenido
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 900),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-// TRANSFERENCIA BANCARIA -> navega a /ventas/transferencia ✅
-                        _MetodoPagoCard(
-                          icon: Icons.account_balance,
-                          title: 'Transferencia Bancaria',
-                          subtitle:
-                          'Registra la referencia y el monto transferido.',
-                          onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              '/ventas/transferencia', // ← ruta correcta
-                              arguments: args, // reenviamos todo el contexto
-                            );
-                          },
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+// Resumen
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 6,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-
-// PUNTO DE VENTA (placeholder por ahora)
-                        _MetodoPagoCard(
-                          icon: Icons.point_of_sale,
-                          title: 'Punto de Venta',
-                          subtitle:
-                          'Cobro mediante POS en tienda o dispositivo móvil.',
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Punto de Venta (próximamente)'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: const [
+                                Icon(Icons.receipt_long, color: Colors.black54),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Resumen',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text('Cliente (RIF): ${_rif.isEmpty ? '—' : _rif}'),
+                            Text('Operadora: ${_lineaName.isEmpty ? '—' : _lineaName}'),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Plan seleccionado:',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 15),
+                            ),
+                            Text('• Plan ${_planIndex}: ${_planTitle}'),
+                            Text(_planDesc),
+                            Text('Precio plan: \$${_planPrice.toStringAsFixed(2)}'),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Modelo de POS:',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 15),
+                            ),
+                            Text('• ${_modelo ?? '—'}'),
+                            Text('Precio POS: \$${_posPrice.toStringAsFixed(2)}'),
+                            const SizedBox(height: 12),
+                            Text(
+                              'TOTAL: \$${_total.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
+                      ),
 
-// EFECTIVO EN TIENDA (placeholder por ahora)
-                        _MetodoPagoCard(
-                          icon: Icons.payments_outlined,
-                          title: 'Efectivo en Tienda',
-                          subtitle:
-                          'El cliente cancelará en efectivo en el establecimiento.',
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content:
-                                Text('Efectivo en Tienda (próximamente)'),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
+                      const SizedBox(height: 18),
+
+// Botones
+                      _bigActionButton(
+                        icon: Icons.account_balance_outlined,
+                        label: 'Transferencia Bancaria',
+                        onPressed: _goTransferencia,
+                      ),
+                      const SizedBox(height: 12),
+                      _bigActionButton(
+                        icon: Icons.point_of_sale_outlined,
+                        label: 'Punto de Venta',
+                        onPressed: _goPuntoDeVenta,
+                      ),
+                      const SizedBox(height: 12),
+                      _bigActionButton(
+                        icon: Icons.payments_outlined,
+                        label: 'Efectivo en Tienda',
+                        onPressed: _goEfectivo,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -129,69 +248,20 @@ class VentasContadoFinanciadoScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-class _MetodoPagoCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _MetodoPagoCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      elevation: 2,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 6,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: Colors.black87),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
+  Widget _bigActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      height: 52,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );

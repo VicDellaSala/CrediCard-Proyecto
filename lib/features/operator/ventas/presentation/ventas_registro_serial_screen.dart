@@ -36,12 +36,43 @@ class VentasRegistroSerialScreen extends StatefulWidget {
       _VentasRegistroSerialScreenState();
 }
 
-class _VentasRegistroSerialScreenState
-    extends State<VentasRegistroSerialScreen> {
+class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen> {
   static const _panelColor = Color(0xFFAED6D8);
 
   String? _selectedSerialEquipo;
   String? _selectedSerialSim;
+
+  /// Precio del modelo POS (leído de almacen_pdv/{modeloId}.precio)
+  double? _modeloPrecio;
+
+  @override
+  void initState() {
+    super.initState();
+    _preloadModeloPrecio(); // solo añade la lectura del precio
+  }
+
+  Future<void> _preloadModeloPrecio() async {
+    final modeloId = (widget.modeloSeleccionado ?? '').trim().toLowerCase();
+    if (modeloId.isEmpty) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('almacen_pdv')
+          .doc(modeloId)
+          .get();
+
+      final data = doc.data();
+      if (data != null) {
+        final p = data['precio'];
+        double? value;
+        if (p is num) value = p.toDouble();
+        if (p is String) value = double.tryParse(p.replaceAll(',', '.'));
+        if (mounted) setState(() => _modeloPrecio = value);
+      }
+    } catch (_) {
+// silencioso: si no hay precio, se mostrará 0 en la siguiente pantalla
+    }
+  }
 
   /// Referencias de colecciones
   CollectionReference<Map<String, dynamic>> get _equiposRef {
@@ -66,17 +97,19 @@ class _VentasRegistroSerialScreenState
 
     if (equipo == null || equipo.isEmpty || sim == null || sim.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content:
-        Text('Debes seleccionar el serial del equipo y el serial de la SIM'),
+        content: Text('Debes seleccionar el serial del equipo y el serial de la SIM'),
       ));
       return;
     }
+
+// Convertimos planPrice y posPrice a String (mantengo tu convención de String)
+    final posPriceStr = (_modeloPrecio ?? 0).toString();
 
     Navigator.pushNamed(
       context,
       '/ventas/plan',
       arguments: {
-        'rif': widget.rif,
+        'rif': widget.rif, // si llega vacío, la siguiente pantalla puede resolverlo
         'lineaId': widget.lineaId,
         'lineaName': widget.lineaName,
         'planIndex': widget.planIndex,
@@ -86,6 +119,7 @@ class _VentasRegistroSerialScreenState
         'modeloSeleccionado': widget.modeloSeleccionado,
         'serialEquipo': equipo,
         'serialSim': sim,
+        'posPrice': posPriceStr, // <<< añadido
       },
     );
   }
@@ -106,14 +140,12 @@ class _VentasRegistroSerialScreenState
                 borderRadius: BorderRadius.circular(16),
               ),
               margin: const EdgeInsets.all(16),
-              padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               child: Row(
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon:
-                    const Icon(Icons.arrow_back, color: Colors.black87),
+                    icon: const Icon(Icons.arrow_back, color: Colors.black87),
                     tooltip: 'Volver',
                   ),
                   const Spacer(),
@@ -158,8 +190,7 @@ class _VentasRegistroSerialScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Plan ${widget.planIndex}: ${widget.planTitle}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
+                                style: const TextStyle(fontWeight: FontWeight.w600)),
                             const SizedBox(height: 4),
                             Text(widget.planDesc),
                             const SizedBox(height: 4),
@@ -171,7 +202,16 @@ class _VentasRegistroSerialScreenState
                       _infoCard(
                         icon: Icons.devices_other_outlined,
                         title: 'Modelo de POS',
-                        child: Text(modelo),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(modelo),
+                            if (_modeloPrecio != null) ...[
+                              const SizedBox(height: 4),
+                              Text('Precio POS: ${_modeloPrecio!.toStringAsFixed(2)}'),
+                            ],
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
 
@@ -207,8 +247,7 @@ class _VentasRegistroSerialScreenState
                         height: 48,
                         child: ElevatedButton.icon(
                           onPressed: _confirmar,
-                          icon:
-                          const Icon(Icons.check_circle_outline),
+                          icon: const Icon(Icons.check_circle_outline),
                           label: const Text('Confirmar'),
                         ),
                       ),
@@ -289,8 +328,7 @@ class _VentasRegistroSerialScreenState
               const SizedBox(width: 10),
               Text(
                 title,
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -324,12 +362,12 @@ class _VentasRegistroSerialScreenState
                 ))
                     .toList(),
                 onChanged: onChanged,
-                decoration: InputDecoration(
-                  hintText: hint,
-                  border: const OutlineInputBorder(),
+                decoration: const InputDecoration(
+                  hintText: 'Selecciona…',
+                  border: OutlineInputBorder(),
                   isDense: true,
                   contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               );
             },

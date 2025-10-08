@@ -1709,64 +1709,80 @@ class _TerminalMenuScreen extends StatelessWidget {
 }
 
 class _TerminalNoDisponibleScreen extends StatelessWidget {
-  const _TerminalNoDisponibleScreen();
+  final Map<String, dynamic>? clienteData;
 
-  static const _panelColor = Color(0xFFAED6D8);
+  const _TerminalNoDisponibleScreen({this.clienteData, Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final rifCliente = clienteData?['rif'] ?? '';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       body: SafeArea(
         child: Column(
           children: [
             Container(
-              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFAED6D8),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-              child: const Row(
+              child: Row(
                 children: [
-                  Spacer(),
-                  Text('Terminal no disponible', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white)),
-                  Spacer(),
-                  SizedBox(width: 48),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                    tooltip: 'Volver',
+                  ),
+                  const Spacer(),
+                  const Text(
+                    'Terminal no disponible',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Spacer(),
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
-            Container(height: 8, color: Colors.white),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.info_outline, size: 64),
-                      const SizedBox(height: 12),
-                      const Text('El cliente está pendiente por creación de terminal.', textAlign: TextAlign.center),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VentasEquiposScreen())),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Registrar terminal adicional'),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          '/operator/ventas',
-                              (route) => false,
-                        ),
-                        child: const Text('Volver al menú principal'),
-                      ),
-
-                    ],
+            Container(width: double.infinity, height: 8, color: Colors.white),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const Text(
+                    'Actualmente no hay terminales disponibles para este cliente.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16),
                   ),
-                ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+// 🔹 Ir a registrar terminal adicional pasando el RIF
+                        Navigator.pushNamed(
+                          context,
+                          '/ventas/equipos',
+                          arguments: {
+                            'rif': rifCliente,
+                          },
+                        );
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Registrar terminal adicional'),
+                    ),
+                  ),
+                ],
               ),
             ),
+            const Spacer(),
           ],
         ),
       ),
@@ -1775,63 +1791,80 @@ class _TerminalNoDisponibleScreen extends StatelessWidget {
 }
 
 class _TerminalDisponibleScreen extends StatelessWidget {
-  const _TerminalDisponibleScreen();
+  final Map<String, dynamic>? clienteData;
 
-  static const _panelColor = Color(0xFFAED6D8);
+  const _TerminalDisponibleScreen({this.clienteData, Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final rifCliente = clienteData?['rif'] ?? '';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       body: SafeArea(
         child: Column(
           children: [
             Container(
-              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFAED6D8),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-              child: const Row(
+              child: Row(
                 children: [
-                  Spacer(),
-                  Text('Terminal disponible', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white)),
-                  Spacer(),
-                  SizedBox(width: 48),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                    tooltip: 'Volver',
+                  ),
+                  const Spacer(),
+                  const Text(
+                    'Terminal disponible',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Spacer(),
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
-            Container(height: 8, color: Colors.white),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.point_of_sale, size: 64, color: Colors.green),
-                      const SizedBox(height: 12),
-                      const Text('Terminal actual: (pendiente de implementar).', textAlign: TextAlign.center),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VentasEquiposScreen())),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Registrar terminal adicional'),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          '/operator/ventas',
-                              (route) => false,
-                        ),
-                        child: const Text('Volver al menú principal'),
-                      ),
-                    ],
+            Container(width: double.infinity, height: 8, color: Colors.white),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const Text(
+                    'Este cliente tiene terminales disponibles.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16),
                   ),
-                ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+// 🔹 Ir a equipos disponibles pasando el RIF
+                        Navigator.pushNamed(
+                          context,
+                          '/ventas/equipos',
+                          arguments: {
+                            'rif': rifCliente,
+                          },
+                        );
+                      },
+                      icon: const Icon(Icons.devices),
+                      label: const Text('Proceder a equipos disponibles'),
+                    ),
+                  ),
+                ],
               ),
             ),
+            const Spacer(),
           ],
         ),
       ),
