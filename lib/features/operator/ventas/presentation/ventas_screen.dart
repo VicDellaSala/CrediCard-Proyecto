@@ -1172,6 +1172,13 @@ class _AfiliadoOkScreen extends StatelessWidget {
 
   static const _panelColor = Color(0xFFAED6D8);
 
+  Future<String?> _loadRifByDocId(BuildContext context) async {
+// Esta pantalla no recibe docId, por lo que intentamos leer el último
+// cliente trabajado desde una bandera simple en memoria, o puedes
+// no usar esto si vienes desde _PreVentaOkScreen (que sí pasa el RIF).
+    return null; // mantenemos sin uso aquí
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1219,7 +1226,17 @@ class _AfiliadoOkScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
-                            onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const VentasEquiposScreen())),
+                            onPressed: () async {
+// Si en tu flujo real llegas aquí sin docId, no tenemos forma
+// de recuperar el RIF con certeza. Se navega sin RIF.
+                              Navigator.pushReplacementNamed(
+                                context,
+                                '/ventas/equipos',
+                                arguments: {
+// 'rif': '...opcional si lo tienes aquí...'
+                                },
+                              );
+                            },
                             icon: const Icon(Icons.inventory_2),
                             label: const Text('Proceder a equipos disponibles'),
                           ),
@@ -1237,180 +1254,192 @@ class _AfiliadoOkScreen extends StatelessWidget {
   }
 }
 
-// ======== PRE-VENTA (AUTO-APROBADA) ========================================
+
+// ------------------ PREVENTA ----------------------
 class _PreVentaScreen extends StatefulWidget {
-  final String docId; // id del cliente (email_lower)
-  const _PreVentaScreen({required this.docId});
+  const _PreVentaScreen({
+    super.key,
+    this.docId, // ← nuevo parámetro opcional
+  });
+
+  final String? docId;
 
   @override
   State<_PreVentaScreen> createState() => _PreVentaScreenState();
 }
 
 class _PreVentaScreenState extends State<_PreVentaScreen> {
-  static const _panelColor = Color(0xFFAED6D8);
-  bool _saving = false;
-
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _rifController = TextEditingController();
+  final TextEditingController _estadoController = TextEditingController();
+  bool _loading = false;
   Map<String, dynamic>? _cliente;
-  @override
-  void initState() {
-    super.initState();
-    _loadCliente();
-  }
 
-  Future<void> _loadCliente() async {
-    final snap = await FirebaseFirestore.instance
-        .collection('Cliente_completo')
-        .doc(widget.docId)
-        .get();
-    setState(() {
-      _cliente = snap.data();
-    });
-  }
+  Future<void> _buscarCliente() async {
+    final rif = _rifController.text.trim();
+    if (rif.isEmpty) return;
 
-  /// Registra la pre-venta y **auto-aprueba** la afiliación:
-  /// - Crea doc en `pre_ventas` (estado: 'aprobada_por_preventa')
-  /// - Actualiza `Cliente_completo/{docId}`: afiliado=true, bank (si no hay)='Afiliación por pre-venta',
-  ///   setea preventa_* y updated_at
-  /// - Navega directo a pantalla OK con opciones: Volver a Ventas / Proceder a equipos disponibles
-  Future<void> _registrarPreventa() async {
-    if (_cliente == null) return;
-    setState(() => _saving = true);
+    setState(() => _loading = true);
     try {
-      // 1) Crear la preventa como aprobada
-      final newDoc = await FirebaseFirestore.instance.collection('pre_ventas').add({
-        'cliente_id': widget.docId,
-        'rif': _cliente?['rif'],
-        'email': _cliente?['email'],
-        'full_name': _cliente?['full_name'],
-        'channel': _cliente?['channel'],
-        'estado': 'aprobada_por_preventa',
+      final q = await FirebaseFirestore.instance
+          .collection('Cliente_completo')
+          .where('rif_lower', isEqualTo: rif.toLowerCase())
+          .limit(1)
+          .get();
+      if (q.docs.isNotEmpty) {
+        _cliente = q.docs.first.data();
+        _estadoController.text = _cliente?['estado'] ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cliente encontrado')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se encontró el cliente')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al buscar: $e')),
+      );
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _registrarPreventa() async {
+    if (!_formKey.currentState!.validate()) return;
+    final rif = _rifController.text.trim();
+    final estado = _estadoController.text.trim();
+    if (rif.isEmpty || estado.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes llenar todos los campos')),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      await FirebaseFirestore.instance.collection('pre_ventas').add({
+        'rif': rif,
+        'estado': estado,
         'created_at': FieldValue.serverTimestamp(),
-        'created_by': FirebaseAuth.instance.currentUser?.uid,
+        if (widget.docId != null) 'doc_origen': widget.docId, // ← agregado
       });
 
-      // 2) Marcar el cliente como afiliado (si no lo está) y guardar vínculo con preventa
-      final currentBank = (_cliente?['bank'] as String?)?.trim();
-      await FirebaseFirestore.instance
-          .collection('Cliente_completo')
-          .doc(widget.docId)
-          .set({
-        'afiliado': true,
-        'bank': (currentBank != null && currentBank.isNotEmpty)
-            ? currentBank
-            : 'Afiliación por pre-venta',
-        'preventa_id': newDoc.id,
-        'preventa_estado': 'aprobada_por_preventa',
-        'preventa_created_at': FieldValue.serverTimestamp(),
-        'updated_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pre-venta registrada con éxito')),
+      );
 
-      if (!mounted) return;
+// Pasamos el RIF al siguiente paso
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const _PreVentaOkScreen()),
+        MaterialPageRoute(
+          builder: (_) => _PreVentaOkScreen(
+            rif: (_cliente?['rif'] as String?)?.trim() ?? rif,
+          ),
+        ),
       );
-    } on FirebaseException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: ${e.message ?? e.code}')));
-      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al registrar: $e')),
+      );
     } finally {
-      if (mounted) setState(() => _saving = false);
+      setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final nombre = _cliente?['full_name'] ?? '—';
-    final rif = _cliente?['rif'] ?? '—';
-    final email = _cliente?['email'] ?? '—';
-
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 700),
-            child: Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-                  child: Row(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFAED6D8),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.assignment_add, color: Colors.white),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Registrar Pre-Venta',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Container(width: double.infinity, height: 8, color: Colors.white),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
                     children: [
-                      TextButton.icon(
-                        onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                            context, '/operator/ventas', (_) => false),
-                        icon: const Icon(Icons.arrow_back, color: Colors.black87),
-                        label: const Text('Ir al menú de Ventas', style: TextStyle(color: Colors.black87, fontSize: 16)),
+                      TextFormField(
+                        controller: _rifController,
+                        decoration: InputDecoration(
+                          labelText: 'RIF del cliente',
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.search),
+                            onPressed: _buscarCliente,
+                          ),
+                        ),
+                        validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Campo requerido' : null,
                       ),
-                      const Spacer(),
-                      const Text(
-                        'Cargar como Pre-venta (auto-aprobada)',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: _estadoController,
+                        decoration: const InputDecoration(labelText: 'Estado'),
+                        validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Campo requerido' : null,
                       ),
-                      const Spacer(),
-                      const SizedBox(width: 48),
+                      const SizedBox(height: 40),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          onPressed: _loading ? null : _registrarPreventa,
+                          icon: _loading
+                              ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                              : const Icon(Icons.save_alt),
+                          label: Text(_loading ? 'Registrando...' : 'Registrar'),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                Container(height: 8, color: Colors.white),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.receipt_long, size: 64),
-                        const SizedBox(height: 16),
-                        _InfoRow(label: 'Cliente', value: nombre),
-                        _InfoRow(label: 'RIF', value: rif),
-                        _InfoRow(label: 'Correo', value: email),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: _saving ? null : _registrarPreventa,
-                            icon: _saving
-                                ? const SizedBox(
-                                width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : const Icon(Icons.save),
-                            label: Text(_saving ? 'Guardando...' : 'Registrar y aprobar pre-venta'),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Se aprobará automáticamente la afiliación por pre-venta.',
-                          style: TextStyle(color: Colors.red, fontSize: 12),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 44,
-                          child: OutlinedButton.icon(
-                            onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                                context, '/operator/ventas', (_) => false),
-                            icon: const Icon(Icons.home),
-                            label: const Text('Volver al menú de Ventas'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
+
 class _PreVentaOkScreen extends StatelessWidget {
-  const _PreVentaOkScreen();
+  const _PreVentaOkScreen({super.key, this.rif});
+  final String? rif;
 
   static const _panelColor = Color(0xFFAED6D8);
 
@@ -1461,7 +1490,15 @@ class _PreVentaOkScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
-                            onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const VentasEquiposScreen())),
+                            onPressed: () {
+                              Navigator.pushReplacementNamed(
+                                context,
+                                '/ventas/equipos',
+                                arguments: {
+                                  if (rif != null && rif!.trim().isNotEmpty) 'rif': rif!.trim(),
+                                },
+                              );
+                            },
                             icon: const Icon(Icons.inventory_2),
                             label: const Text('Proceder a equipos disponibles'),
                           ),
@@ -1621,7 +1658,8 @@ class _ConfirmarAfiliadoExistenteScreen extends StatelessWidget {
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => _TerminalMenuScreen(docId: docId)));
+                                  Navigator.push(context,
+                                      MaterialPageRoute(builder: (_) => _TerminalMenuScreen(docId: docId)));
                                 },
                                 child: const Text('Confirmar'),
                               ),
@@ -1647,66 +1685,91 @@ class _TerminalMenuScreen extends StatelessWidget {
 
   static const _panelColor = Color(0xFFAED6D8);
 
+  Future<String?> _loadRif() async {
+    final snap = await FirebaseFirestore.instance
+        .collection('Cliente_completo')
+        .doc(docId)
+        .get();
+    return (snap.data()?['rif'] as String?)?.trim();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F2),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 700),
-            child: Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-                  child: const Row(
-                    children: [
-                      Spacer(),
-                      Text('Terminales', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white)),
-                      Spacer(),
-                      SizedBox(width: 48),
-                    ],
-                  ),
-                ),
-                Container(height: 8, color: Colors.white),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _TerminalNoDisponibleScreen())),
-                            icon: const Icon(Icons.device_unknown),
-                            label: const Text('Sin terminal disponible'),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _TerminalDisponibleScreen())),
-                            icon: const Icon(Icons.point_of_sale),
-                            label: const Text('Con terminal disponible'),
-                          ),
-                        ),
-                      ],
+    return FutureBuilder<String?>(
+      future: _loadRif(),
+      builder: (context, rifSnap) {
+        final rif = rifSnap.data ?? '';
+        return Scaffold(
+          backgroundColor: const Color(0xFFF2F2F2),
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 700),
+                child: Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                      child: const Row(
+                        children: [
+                          Spacer(),
+                          Text('Terminales', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white)),
+                          Spacer(),
+                          SizedBox(width: 48),
+                        ],
+                      ),
                     ),
-                  ),
+                    Container(height: 8, color: Colors.white),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: ElevatedButton.icon(
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  '/ventas/equipos',
+                                  arguments: {'rif': rif},
+                                ),
+                                icon: const Icon(Icons.device_unknown),
+                                label: const Text('Sin terminal disponible'),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: ElevatedButton.icon(
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  '/ventas/equipos',
+                                  arguments: {'rif': rif},
+                                ),
+                                icon: const Icon(Icons.point_of_sale),
+                                label: const Text('Con terminal disponible'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
+
+// Ya no necesitamos que las subpantallas carguen RIF; si las sigues usando,
+// déjalas, pero no son necesarias para el paso del RIF.
 
 class _TerminalNoDisponibleScreen extends StatelessWidget {
   final Map<String, dynamic>? clienteData;

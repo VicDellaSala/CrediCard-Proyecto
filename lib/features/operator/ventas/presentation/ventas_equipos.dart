@@ -1,7 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VentasEquiposScreen extends StatelessWidget {
   const VentasEquiposScreen({super.key});
@@ -11,6 +9,10 @@ class VentasEquiposScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+// 👇 Lee el RIF que llega por argumentos de ruta
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final String rif = (args?['rif'] as String?) ?? '';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       body: SafeArea(
@@ -103,12 +105,10 @@ class VentasEquiposScreen extends StatelessWidget {
                           final id = d.id;
                           final data = d.data();
 
-                          final nombre =
-                          (data['modelo'] ?? '').toString().trim();
-                          final descripcion =
-                          (data['descripcion'] ?? '').toString().trim();
-                          final caracteristicas =
-                          (data['caracteristicas'] ?? '').toString().trim();
+                          final nombre = (data['modelo'] ?? '').toString().trim();
+                          final descripcion = (data['descripcion'] ?? '').toString().trim();
+                          final caracteristicas = (data['caracteristicas'] ?? '').toString().trim();
+
                           final precioAny = data['precio'];
                           final double? precio = switch (precioAny) {
                             int v => v.toDouble(),
@@ -123,6 +123,7 @@ class VentasEquiposScreen extends StatelessWidget {
                             descripcion: descripcion,
                             caracteristicas: caracteristicas,
                             precio: precio,
+                            rif: rif, // 👈 pasamos rif al card
                           );
                         },
                       );
@@ -144,6 +145,7 @@ class _ModeloCard extends StatelessWidget {
   final String descripcion;
   final String caracteristicas;
   final double? precio;
+  final String rif; // 👈 NUEVO
 
   const _ModeloCard({
     required this.modeloId,
@@ -151,6 +153,7 @@ class _ModeloCard extends StatelessWidget {
     required this.descripcion,
     required this.caracteristicas,
     required this.precio,
+    required this.rif,
   });
 
   void _mostrarDialogo(BuildContext context, String titulo, String texto) {
@@ -158,9 +161,7 @@ class _ModeloCard extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(titulo),
-        content: SingleChildScrollView(
-          child: Text(texto),
-        ),
+        content: SingleChildScrollView(child: Text(texto)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -251,11 +252,12 @@ class _ModeloCard extends StatelessWidget {
             height: 44,
             child: ElevatedButton(
               onPressed: () {
-// 🔧 Cambio mínimo: ahora va a /ventas/operadoras
+// 👇 Navega a /ventas/operadoras y manda también el RIF
                 Navigator.pushNamed(
                   context,
                   '/ventas/operadoras',
                   arguments: {
+                    'rif': rif,
                     'modeloSeleccionado': nombre,
                     'modeloId': modeloId,
                     'precio': precio,
@@ -263,9 +265,7 @@ class _ModeloCard extends StatelessWidget {
                 );
               },
               style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               child: const Text('Seleccionar'),
             ),
@@ -276,6 +276,7 @@ class _ModeloCard extends StatelessWidget {
   }
 }
 
+// (Opcional) si usabas este placeholder para pruebas, lo dejo igual.
 class _ElegirOperadoraPlaceholder extends StatelessWidget {
   final String modeloId;
   final String nombre;

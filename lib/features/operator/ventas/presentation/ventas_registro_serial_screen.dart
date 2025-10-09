@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Pantalla: Registro de serial (equipo y SIM)
-/// Navega a /ventas/plan cuando ambos seriales se seleccionan.
 class VentasRegistroSerialScreen extends StatefulWidget {
   const VentasRegistroSerialScreen({
     super.key,
@@ -17,18 +15,12 @@ class VentasRegistroSerialScreen extends StatefulWidget {
   });
 
   final String rif;
-
-  /// Operadora seleccionada (id: 'digitel' | 'movistar' | 'publica')
   final String lineaId;
   final String lineaName;
-
-  /// Plan elegido (índice visible 1..3, y detalles)
   final int planIndex;
   final String planTitle;
   final String planDesc;
   final String planPrice;
-
-  /// Modelo de POS seleccionado en la pantalla anterior (p. ej. "Castlle")
   final String? modeloSeleccionado;
 
   @override
@@ -36,25 +28,25 @@ class VentasRegistroSerialScreen extends StatefulWidget {
       _VentasRegistroSerialScreenState();
 }
 
-class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen> {
+class _VentasRegistroSerialScreenState
+    extends State<VentasRegistroSerialScreen> {
   static const _panelColor = Color(0xFFAED6D8);
 
   String? _selectedSerialEquipo;
   String? _selectedSerialSim;
-
-  /// Precio del modelo POS (leído de almacen_pdv/{modeloId}.precio)
   double? _modeloPrecio;
+  String? _rifCliente; // 🔹 Se guarda el rif recibido
 
   @override
   void initState() {
     super.initState();
-    _preloadModeloPrecio(); // solo añade la lectura del precio
+    _rifCliente = widget.rif.isNotEmpty ? widget.rif : '—';
+    _preloadModeloPrecio();
   }
 
   Future<void> _preloadModeloPrecio() async {
     final modeloId = (widget.modeloSeleccionado ?? '').trim().toLowerCase();
     if (modeloId.isEmpty) return;
-
     try {
       final doc = await FirebaseFirestore.instance
           .collection('almacen_pdv')
@@ -69,12 +61,9 @@ class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen>
         if (p is String) value = double.tryParse(p.replaceAll(',', '.'));
         if (mounted) setState(() => _modeloPrecio = value);
       }
-    } catch (_) {
-// silencioso: si no hay precio, se mostrará 0 en la siguiente pantalla
-    }
+    } catch (_) {}
   }
 
-  /// Referencias de colecciones
   CollectionReference<Map<String, dynamic>> get _equiposRef {
     final modeloId = (widget.modeloSeleccionado ?? '').trim().toLowerCase();
     return FirebaseFirestore.instance
@@ -102,14 +91,13 @@ class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen>
       return;
     }
 
-// Convertimos planPrice y posPrice a String (mantengo tu convención de String)
     final posPriceStr = (_modeloPrecio ?? 0).toString();
 
     Navigator.pushNamed(
       context,
       '/ventas/plan',
       arguments: {
-        'rif': widget.rif, // si llega vacío, la siguiente pantalla puede resolverlo
+        'rif': _rifCliente ?? widget.rif, // 🔹 Ahora siempre se reenvía
         'lineaId': widget.lineaId,
         'lineaName': widget.lineaName,
         'planIndex': widget.planIndex,
@@ -119,7 +107,7 @@ class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen>
         'modeloSeleccionado': widget.modeloSeleccionado,
         'serialEquipo': equipo,
         'serialSim': sim,
-        'posPrice': posPriceStr, // <<< añadido
+        'posPrice': posPriceStr,
       },
     );
   }
@@ -174,7 +162,10 @@ class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen>
                       _infoCard(
                         icon: Icons.badge_outlined,
                         title: 'Cliente (RIF)',
-                        child: Text(widget.rif.isNotEmpty ? widget.rif : '—'),
+                        child: Text(
+                          _rifCliente ?? '—',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
                       const SizedBox(height: 10),
                       _infoCard(
@@ -215,7 +206,6 @@ class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen>
                       ),
                       const SizedBox(height: 16),
 
-// Selector de serial del EQUIPO
                       _selectorCard(
                         icon: Icons.qr_code_2_outlined,
                         title: 'Selecciona serial del equipo',
@@ -229,7 +219,6 @@ class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen>
 
                       const SizedBox(height: 12),
 
-// Selector de serial de la SIM
                       _selectorCard(
                         icon: Icons.sim_card_outlined,
                         title: 'Selecciona serial de la tarjeta (SIM)',
@@ -262,7 +251,6 @@ class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen>
     );
   }
 
-  /// Tarjeta de información simple
   Widget _infoCard({
     required IconData icon,
     required String title,
@@ -300,7 +288,6 @@ class _VentasRegistroSerialScreenState extends State<VentasRegistroSerialScreen>
     );
   }
 
-  /// Tarjeta con Dropdown que se alimenta de un Stream de Firestore
   Widget _selectorCard({
     required IconData icon,
     required String title,

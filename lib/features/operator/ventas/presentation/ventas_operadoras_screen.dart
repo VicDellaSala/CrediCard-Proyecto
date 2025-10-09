@@ -13,12 +13,13 @@ class VentasOperadorasScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-// Datos que llegan desde VentasEquiposScreen
+// 🔹 Datos que llegan desde VentasEquiposScreen
     final args = (ModalRoute.of(context)?.settings.arguments as Map?) ?? const {};
     final String? rif = args['rif'] as String?;
     final String? modeloSeleccionado = args['modeloSeleccionado'] as String?;
     final String? modeloId = args['modeloId'] as String?;
-    final double? modeloPrecio = (args['precio'] is num) ? (args['precio'] as num).toDouble() : null;
+    final double? modeloPrecio =
+    (args['precio'] is num) ? (args['precio'] as num).toDouble() : null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
@@ -103,7 +104,7 @@ class VentasOperadorasScreen extends StatelessWidget {
                           onSelectPlan: (planIndex, planTitle, planDesc, planPrice) {
                             _irARegistroSerial(
                               context: context,
-                              rif: rif,
+                              rif: rif, // 🔹 añadimos rif aquí
                               modeloSeleccionado: modeloSeleccionado,
                               modeloId: modeloId,
                               modeloPrecio: modeloPrecio,
@@ -125,7 +126,7 @@ class VentasOperadorasScreen extends StatelessWidget {
                           onSelectPlan: (planIndex, planTitle, planDesc, planPrice) {
                             _irARegistroSerial(
                               context: context,
-                              rif: rif,
+                              rif: rif, // 🔹 añadimos rif aquí
                               modeloSeleccionado: modeloSeleccionado,
                               modeloId: modeloId,
                               modeloPrecio: modeloPrecio,
@@ -147,7 +148,7 @@ class VentasOperadorasScreen extends StatelessWidget {
                           onSelectPlan: (planIndex, planTitle, planDesc, planPrice) {
                             _irARegistroSerial(
                               context: context,
-                              rif: rif,
+                              rif: rif, // 🔹 añadimos rif aquí
                               modeloSeleccionado: modeloSeleccionado,
                               modeloId: modeloId,
                               modeloPrecio: modeloPrecio,
@@ -189,7 +190,7 @@ class VentasOperadorasScreen extends StatelessWidget {
       context,
       '/ventas/operadoras/serial',
       arguments: {
-        'rif': rif,
+        'rif': rif, // 🔹 reenviamos rif también
         'modeloSeleccionado': modeloSeleccionado,
         'modeloId': modeloId,
         'modeloPrecio': modeloPrecio,
@@ -257,7 +258,7 @@ class _LineaTile extends StatelessWidget {
           ],
         ),
         children: [
-// Plan 1 (siempre mostramos)
+// Plan 1
           _PlanCard(
             requiredLabel: ' (obligatorio)',
             title: p1Title.isEmpty ? 'Plan 1' : p1Title,
@@ -267,7 +268,7 @@ class _LineaTile extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-// Plan 2 (si hay título/desc o precio configurado)
+// Plan 2
           if (p2Title.isNotEmpty || p2Desc.isNotEmpty || p2Price.isNotEmpty) ...[
             _PlanCard(
               title: p2Title.isEmpty ? 'Plan 2' : p2Title,
@@ -278,7 +279,7 @@ class _LineaTile extends StatelessWidget {
             const SizedBox(height: 8),
           ],
 
-// Plan 3 (si hay data)
+// Plan 3
           if (p3Title.isNotEmpty || p3Desc.isNotEmpty || p3Price.isNotEmpty) ...[
             _PlanCard(
               title: p3Title.isEmpty ? 'Plan 3' : p3Title,
@@ -341,7 +342,7 @@ class _PlanCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
 
-// Descripción multilínea (con ver más si es larga)
+// Descripción
           if (desc.isNotEmpty) ...[
             _MultilinePreview(
               label: 'Descripción',
@@ -382,7 +383,6 @@ class _PlanCard extends StatelessWidget {
   }
 }
 
-/// Texto largo con "Ver más" en un diálogo.
 class _MultilinePreview extends StatelessWidget {
   final String label;
   final String text;
