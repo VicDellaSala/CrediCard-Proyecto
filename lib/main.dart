@@ -61,6 +61,10 @@ import 'features/bank/presentation/bank_inbox_afiliados_screen.dart';
 import 'features/bank/presentation/bank_inbox_terminal_screen.dart';
 // import 'features/bank/presentation/bank_processed_screen.dart'; // si ya la tienes
 
+// ===== NUEVO: Compras (usuario)
+import 'features/user/compras/presentation/user_compra_comprobante.dart';
+import 'features/user/compras/presentation/user_compra_equipos_screen.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -132,7 +136,7 @@ class MyApp extends StatelessWidget {
 // NUEVO: transferencia bancaria y chequeo
         '/ventas/pago/transferencia': (context) =>
         const VentasTransferenciaBancariaScreen(),
-        '/ventas/chequeo': (context) => const VentasChequeoScreen(rif: '',),
+        '/ventas/chequeo': (context) => const VentasChequeoScreen(rif: ''),
 
 // Banco
         '/bank': (context) => const BankHomeScreen(),
@@ -140,6 +144,12 @@ class MyApp extends StatelessWidget {
         '/bank/inbox/afiliados': (context) => const BankInboxAfiliadosScreen(),
         '/bank/inbox/terminal': (context) => const BankInboxTerminalScreen(),
         '/bank/processed': (context) => const _BankProcessedPlaceholder(),
+
+// ===== NUEVO: Compras (usuario)
+        '/user/compras/comprobante': (context) =>
+        const UserCompraComprobanteScreen(),
+        '/user/compras/equipos': (context) =>
+        const UserCompraEquiposScreen(),
       },
 
 // Construir Registro de Serial con argumentos (sin tocar)
