@@ -100,9 +100,24 @@ class _VentasContadoFinanciadoScreenState
   }
 
   void _goPuntoDeVenta() {
-// TODO: implementa cuando tengas la pantalla
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Pantalla de Punto de Venta (pendiente).')),
+// ⬇️ AHORA NAVEGA AL PAGO POR PDV CON LOS MISMOS ARGUMENTOS
+    Navigator.pushNamed(
+      context,
+      '/ventas/pago/pdv',
+      arguments: {
+        'rif': _rif,
+        'lineaId': _lineaId,
+        'lineaName': _lineaName,
+        'planIndex': _planIndex,
+        'planTitle': _planTitle,
+        'planDesc': _planDesc,
+        'planPrice': _planPrice.toStringAsFixed(2),
+        'modeloSeleccionado': _modelo,
+        'posPrice': _posPrice.toStringAsFixed(2),
+        'total': _total.toStringAsFixed(2),
+        'serialEquipo': _serialEquipo,
+        'serialSim': _serialSim,
+      },
     );
   }
 
