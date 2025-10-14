@@ -68,8 +68,12 @@ class _VentasContadoFinanciadoScreenState
 
   static double _asDouble(String raw) {
 // Quita $ y espacios, cambia coma por punto, luego parsea
-    final cleaned =
-    raw.replaceAll('\$', '').replaceAll('USD', '').replaceAll('Bs', '').replaceAll(',', '.').trim();
+    final cleaned = raw
+        .replaceAll('\$', '')
+        .replaceAll('USD', '')
+        .replaceAll('Bs', '')
+        .replaceAll(',', '.')
+        .trim();
     return double.tryParse(cleaned) ?? 0.0;
   }
 
@@ -77,7 +81,7 @@ class _VentasContadoFinanciadoScreenState
   void _goTransferencia() {
     Navigator.pushNamed(
       context,
-      '/ventas/transferencia-bancaria', // <-- ajusta si tu ruta es distinta
+      '/ventas/pago/transferencia', // ⬅️ RUTA CORRECTA SEGÚN TU main.dart
       arguments: {
         'rif': _rif,
         'lineaId': _lineaId,
@@ -188,16 +192,18 @@ class _VentasContadoFinanciadoScreenState
                             ),
                             const SizedBox(height: 12),
                             Text('Cliente (RIF): ${_rif.isEmpty ? '—' : _rif}'),
-                            Text('Operadora: ${_lineaName.isEmpty ? '—' : _lineaName}'),
+                            Text(
+                                'Operadora: ${_lineaName.isEmpty ? '—' : _lineaName}'),
                             const SizedBox(height: 12),
                             const Text(
                               'Plan seleccionado:',
                               style: TextStyle(
                                   fontWeight: FontWeight.w700, fontSize: 15),
                             ),
-                            Text('• Plan ${_planIndex}: ${_planTitle}'),
+                            Text('• Plan ${_planIndex}: $_planTitle'),
                             Text(_planDesc),
-                            Text('Precio plan: \$${_planPrice.toStringAsFixed(2)}'),
+                            Text(
+                                'Precio plan: \$${_planPrice.toStringAsFixed(2)}'),
                             const SizedBox(height: 12),
                             const Text(
                               'Modelo de POS:',
@@ -205,7 +211,8 @@ class _VentasContadoFinanciadoScreenState
                                   fontWeight: FontWeight.w700, fontSize: 15),
                             ),
                             Text('• ${_modelo ?? '—'}'),
-                            Text('Precio POS: \$${_posPrice.toStringAsFixed(2)}'),
+                            Text(
+                                'Precio POS: \$${_posPrice.toStringAsFixed(2)}'),
                             const SizedBox(height: 12),
                             Text(
                               'TOTAL: \$${_total.toStringAsFixed(2)}',
@@ -261,7 +268,8 @@ class _VentasContadoFinanciadoScreenState
         icon: Icon(icon),
         label: Text(label),
         style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
