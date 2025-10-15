@@ -58,6 +58,12 @@ import 'features/operator/ventas/presentation/ventas_chequeo.dart';
 import 'features/operator/ventas/presentation/venta_pdv_pago.dart';
 import 'features/operator/ventas/presentation/ventas_datos_finales.dart';
 
+// ===== NUEVO: pago en EFECTIVO =====
+import 'features/operator/ventas/presentation/ventas_pago_efectivo.dart';
+
+// ===== NUEVO: Access / Comerce =====
+import 'features/operator/ventas/presentation/ventas_access_comerce.dart';
+
 // Banco (nuevo rol)
 import 'features/bank/presentation/bank_home_screen.dart';
 import 'features/bank/presentation/bank_inbox_menu_screen.dart';
@@ -148,6 +154,14 @@ class MyApp extends StatelessWidget {
         const VentaPdvPagoScreen(),
         '/ventas/datos-finales': (context) =>
         const VentasDatosFinalesScreen(),
+
+// NUEVO: EFECTIVO
+        '/ventas/pago/efectivo': (context) =>
+        const VentasPagoEfectivoScreen(),
+
+// NUEVO: ACCESS / COMERCE
+        '/ventas/pago/access-comerce': (context) =>
+        const VentasAccessComerceScreen(),
 
 // Banco
         '/bank': (context) => const BankHomeScreen(),

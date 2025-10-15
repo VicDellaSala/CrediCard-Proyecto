@@ -2,30 +2,32 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-class VentasTransferenciaBancariaScreen extends StatefulWidget {
-  const VentasTransferenciaBancariaScreen({super.key});
+class VentasAccessComerceScreen extends StatefulWidget {
+  const VentasAccessComerceScreen({super.key});
 
   @override
-  State<VentasTransferenciaBancariaScreen> createState() =>
-      _VentasTransferenciaBancariaScreenState();
+  State<VentasAccessComerceScreen> createState() => _VentasAccessComerceScreenState();
 }
 
-class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaBancariaScreen> {
+class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
   static const _panelColor = Color(0xFFAED6D8);
 
   final _formKey = GlobalKey<FormState>();
 
-// Args
+// Args que llegan (igual que en los otros flujos)
   String _rif = '';
-  String _clienteNombre = ''; // opcional, intentamos leerlo de Cliente_completo
+  String _clienteNombre = ''; // opcional, lo buscamos por RIF
   double _totalAPagar = 0.0;
 
-// Campos del formulario
-  final _comercioCtrl = TextEditingController();
+// Controles
+  final _empresaCtrl = TextEditingController();
+  final _ubicacionCtrl = TextEditingController();
   final _montoCtrl = TextEditingController();
-  final _afiliadoCtrl = TextEditingController(); // ← inicia vacío
-  final _aprobacionCtrl = TextEditingController();
-  final _referenciaCtrl = TextEditingController();
+
+// Campos especiales
+  final _aprobacionCtrl = TextEditingController(); // 6 dígitos iniciando en 0
+  final _traceCtrl = TextEditingController(); // 4 dígitos
+  final _afiliadoCtrl = TextEditingController(); // 8 dígitos
 
   String? _banco;
   late final String _fecha; // yyyy-mm-dd
@@ -49,48 +51,62 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
     _fecha = "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
     _hora = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
-// Generar un número de aprobación de 6 dígitos (editable)
-    _aprobacionCtrl.text = _random6();
-
-// referencia inicia vacía (y se valida ^00\d{4}$)
+// Generamos por defecto (EDITABLES):
+    _aprobacionCtrl.text = _randomAprobacion6(); // 6 dígitos empezando por 0
+    _traceCtrl.text = _random4(); // 4 dígitos
+    _afiliadoCtrl.text = _random8(); // 8 dígitos
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = (ModalRoute.of(context)?.settings.arguments ?? {}) as Map<String, dynamic>;
-
     _rif = (args['rif'] ?? '').toString();
     _totalAPagar = _toDouble(args['total']);
 
-// Intentar cargar nombre cliente de Cliente_completo (opcional, no bloquea)
     _cargarNombreClientePorRif(_rif);
   }
 
   @override
   void dispose() {
-    _comercioCtrl.dispose();
+    _empresaCtrl.dispose();
+    _ubicacionCtrl.dispose();
     _montoCtrl.dispose();
-    _afiliadoCtrl.dispose();
     _aprobacionCtrl.dispose();
-    _referenciaCtrl.dispose();
+    _traceCtrl.dispose();
+    _afiliadoCtrl.dispose();
     super.dispose();
   }
 
-// Utils
-  String _random6() => (Random().nextInt(900000) + 100000).toString();
+// ====================== Utils ======================
+
+  String _random4() => (Random().nextInt(9000) + 1000).toString(); // 4 dígitos
+  String _random8() => (Random().nextInt(90000000) + 10000000).toString(); // 8 dígitos
+
+// 6 dígitos que INICIE en 0: "0" + 5 dígitos aleatorios
+  String _randomAprobacion6() {
+    final tail = (Random().nextInt(90000) + 10000).toString(); // 5 dígitos
+    return '0$tail'; // ej: 045678
+  }
 
   double _toDouble(dynamic v) {
     if (v == null) return 0;
     if (v is num) return v.toDouble();
     if (v is String) {
-      final s = v.replaceAll('\$', '').replaceAll('USD', '').replaceAll('Bs', '').replaceAll(',', '.').trim();
+      final s = v
+          .replaceAll('\$', '')
+          .replaceAll('USD', '')
+          .replaceAll('Bs', '')
+          .replaceAll(',', '.')
+          .trim();
       return double.tryParse(s) ?? 0;
     }
     return 0;
   }
 
-  bool _isReferenciaValida(String v) => RegExp(r'^00\d{4}$').hasMatch(v); // 00 + 4 dígitos
+  bool _isAprobacionValida(String v) => RegExp(r'^0\d{5}$').hasMatch(v); // 6 dígitos empezando en 0
+  bool _isTraceValido(String v) => RegExp(r'^\d{4}$').hasMatch(v); // 4 dígitos
+  bool _isAfiliadoValido(String v) => RegExp(r'^\d{8}$').hasMatch(v); // 8 dígitos
 
   Future<void> _cargarNombreClientePorRif(String rif) async {
     if (rif.isEmpty) return;
@@ -105,7 +121,9 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
         final data = q.docs.first.data();
         final nombre = (data['first_name'] ?? '').toString();
         final apellido = (data['last_name'] ?? '').toString();
-        setState(() => _clienteNombre = [nombre, apellido].where((e) => e.trim().isNotEmpty).join(' ').trim());
+        setState(() {
+          _clienteNombre = [nombre, apellido].where((e) => e.trim().isNotEmpty).join(' ').trim();
+        });
       }
     } catch (_) {}
   }
@@ -113,38 +131,42 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     if (_banco == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecciona el banco.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona el banco.')),
+      );
       return;
     }
 
-    final monto = _toDouble(_montoCtrl.text);
-    final afiliado = _afiliadoCtrl.text.trim();
+    final empresa = _empresaCtrl.text.trim();
+    final ubicacion = _ubicacionCtrl.text.trim();
     final aprobacion = _aprobacionCtrl.text.trim();
-    final referencia = _referenciaCtrl.text.trim();
-    final comercio = _comercioCtrl.text.trim();
+    final trace = _traceCtrl.text.trim();
+    final afiliado = _afiliadoCtrl.text.trim();
+    final montoPag = _toDouble(_montoCtrl.text);
 
     try {
       final firestore = FirebaseFirestore.instance;
 
-// 1) Guardar la transferencia
-      await firestore.collection('transferencias_bancarias').add({
+// 1) Guardar pago Access/Comerce
+      await firestore.collection('pagos_access_comerce').add({
         'rif': _rif,
         'nombre': _clienteNombre,
+        'empresa': empresa,
+        'ubicacion': ubicacion,
         'banco': _banco,
-        'afiliado': afiliado,
-        'aprobacion': aprobacion,
-        'referencia': referencia,
-        'monto': monto,
+        'aprobacion': aprobacion, // debe iniciar en 0 (validado)
+        'trace': trace, // 4 dígitos
+        'afiliado': afiliado, // 8 dígitos
+        'monto': montoPag,
         'fecha': _fecha,
         'hora': _hora,
-        'comercio': comercio,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
 // 2) Ajustar deuda en Cliente_completo
 // Si monto < total → deuda += (total - monto)
 // Si monto > total → deuda -= (monto - total) (sin bajar de 0)
-      final diff = monto - _totalAPagar;
+      final diff = montoPag - _totalAPagar;
 
       final q = await firestore
           .collection('Cliente_completo')
@@ -153,55 +175,65 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
           .get();
 
       if (q.docs.isNotEmpty) {
-        final docRef = q.docs.first.reference;
+        final ref = q.docs.first.reference;
         final data = q.docs.first.data();
 
         final double deudaActual = _toDouble(data['deuda']);
         double nuevaDeuda;
         if (diff < 0) {
-// pagó menos → aumenta deuda
+// Pagó menos → aumenta deuda
           nuevaDeuda = deudaActual + (-diff);
         } else if (diff > 0) {
-// pagó de más → reduce deuda
+// Pagó de más → reduce deuda
           final tmp = deudaActual - diff;
           nuevaDeuda = tmp < 0 ? 0 : tmp;
         } else {
-          nuevaDeuda = deudaActual; // exacto, no cambia
+          nuevaDeuda = deudaActual;
         }
 
-        await docRef.update({
+        await ref.update({
           'deuda': double.parse(nuevaDeuda.toStringAsFixed(2)),
           'updated_at': FieldValue.serverTimestamp(),
         });
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transferencia guardada.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pago Access/Comerce guardado.')),
+      );
 
-// ⬇️⬇️ ÚNICO CAMBIO: ahora navega a /ventas/datos-finales
+// 3) Ir a datos finales
       Navigator.pushNamed(
         context,
         '/ventas/datos-finales',
         arguments: {
           'rif': _rif,
-          'monto': monto,
+          'monto': montoPag,
           'total': _totalAPagar,
           'banco': _banco,
-          'afiliado': afiliado,
           'aprobacion': aprobacion,
-          'referencia': referencia,
+          'trace': trace,
+          'afiliado': afiliado,
+          'empresa': empresa,
+          'ubicacion': ubicacion,
           'fecha': _fecha,
           'hora': _hora,
         },
       );
     } on FirebaseException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')),
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error inesperado: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error inesperado: $e')),
+      );
     }
   }
+
+// ====================== UI ======================
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +256,7 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
                   ),
                   const Spacer(),
                   const Text(
-                    'Transferencia bancaria',
+                    'Access / Comerce',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
                   ),
                   const Spacer(),
@@ -302,12 +334,25 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
       decoration: _cardDeco(),
       child: Column(
         children: [
+// Empresa / Local
           TextFormField(
-            controller: _comercioCtrl,
+            controller: _empresaCtrl,
             decoration: const InputDecoration(
-              labelText: 'Comercio (opcional)',
+              labelText: 'Nombre de la empresa / local',
               border: OutlineInputBorder(),
             ),
+            validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa el nombre de la empresa o local' : null,
+          ),
+          const SizedBox(height: 12),
+
+// Ubicación
+          TextFormField(
+            controller: _ubicacionCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Ubicación de la empresa / local',
+              border: OutlineInputBorder(),
+            ),
+            validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa la ubicación' : null,
           ),
           const SizedBox(height: 12),
 
@@ -324,37 +369,52 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
           ),
           const SizedBox(height: 12),
 
-// Afiliado (manual; empieza vacío)
-          TextFormField(
-            controller: _afiliadoCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Afiliado (8 dígitos)',
-              hintText: '########',
-              border: OutlineInputBorder(),
-            ),
-            maxLength: 8,
-            keyboardType: TextInputType.number,
-            validator: (v) {
-              final s = (v ?? '').trim();
-              if (s.isEmpty) return 'Ingresa el número de afiliado';
-              if (!RegExp(r'^\d{8}$').hasMatch(s)) return 'Deben ser 8 dígitos';
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-
-// Aprobación
+// Aprobación (6 dígitos, empezando en 0)
           TextFormField(
             controller: _aprobacionCtrl,
             decoration: const InputDecoration(
-              labelText: 'N° de aprobación (6 dígitos)',
+              labelText: 'N° de aprobación (debe iniciar con 0)',
               border: OutlineInputBorder(),
             ),
             maxLength: 6,
             keyboardType: TextInputType.number,
             validator: (v) {
               final s = (v ?? '').trim();
-              if (!RegExp(r'^\d{6}$').hasMatch(s)) return 'Deben ser 6 dígitos';
+              if (!_isAprobacionValida(s)) return 'Formato inválido (0 + 5 dígitos)';
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+
+// Trace (4 dígitos)
+          TextFormField(
+            controller: _traceCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Trace (4 dígitos)',
+              border: OutlineInputBorder(),
+            ),
+            maxLength: 4,
+            keyboardType: TextInputType.number,
+            validator: (v) {
+              final s = (v ?? '').trim();
+              if (!_isTraceValido(s)) return 'Deben ser 4 dígitos';
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+
+// Afiliado (8 dígitos)
+          TextFormField(
+            controller: _afiliadoCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Afiliado (8 dígitos)',
+              border: OutlineInputBorder(),
+            ),
+            maxLength: 8,
+            keyboardType: TextInputType.number,
+            validator: (v) {
+              final s = (v ?? '').trim();
+              if (!_isAfiliadoValido(s)) return 'Deben ser 8 dígitos';
               return null;
             },
           ),
@@ -372,24 +432,6 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
             validator: (v) {
               final n = double.tryParse((v ?? '').replaceAll(',', '.').trim());
               if (n == null || n <= 0) return 'Monto inválido';
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-
-// Referencia: debe iniciar con 00 + 4 dígitos
-          TextFormField(
-            controller: _referenciaCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Referencia (formato 00####)',
-              hintText: 'Ej: 001234',
-              border: OutlineInputBorder(),
-            ),
-            maxLength: 6,
-            keyboardType: TextInputType.number,
-            validator: (v) {
-              final s = (v ?? '').trim();
-              if (!_isReferenciaValida(s)) return 'Debe empezar con 00 y tener 6 dígitos (00####)';
               return null;
             },
           ),

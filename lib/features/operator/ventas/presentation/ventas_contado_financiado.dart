@@ -77,54 +77,51 @@ class _VentasContadoFinanciadoScreenState
     return double.tryParse(cleaned) ?? 0.0;
   }
 
-// Navegaciones
+// ===== Navegaciones (mismos argumentos en todos) =====
+  Map<String, dynamic> _buildArgs() => {
+    'rif': _rif,
+    'lineaId': _lineaId,
+    'lineaName': _lineaName,
+    'planIndex': _planIndex,
+    'planTitle': _planTitle,
+    'planDesc': _planDesc,
+    'planPrice': _planPrice.toStringAsFixed(2),
+    'modeloSeleccionado': _modelo,
+    'posPrice': _posPrice.toStringAsFixed(2),
+    'total': _total.toStringAsFixed(2),
+    'serialEquipo': _serialEquipo,
+    'serialSim': _serialSim,
+  };
+
   void _goTransferencia() {
     Navigator.pushNamed(
       context,
-      '/ventas/pago/transferencia', // ⬅️ RUTA CORRECTA SEGÚN TU main.dart
-      arguments: {
-        'rif': _rif,
-        'lineaId': _lineaId,
-        'lineaName': _lineaName,
-        'planIndex': _planIndex,
-        'planTitle': _planTitle,
-        'planDesc': _planDesc,
-        'planPrice': _planPrice.toStringAsFixed(2),
-        'modeloSeleccionado': _modelo,
-        'posPrice': _posPrice.toStringAsFixed(2),
-        'total': _total.toStringAsFixed(2),
-        'serialEquipo': _serialEquipo,
-        'serialSim': _serialSim,
-      },
+      '/ventas/pago/transferencia', // ⬅️ ruta que ya usas en main
+      arguments: _buildArgs(),
     );
   }
 
   void _goPuntoDeVenta() {
-// ⬇️ AHORA NAVEGA AL PAGO POR PDV CON LOS MISMOS ARGUMENTOS
     Navigator.pushNamed(
       context,
-      '/ventas/pago/pdv',
-      arguments: {
-        'rif': _rif,
-        'lineaId': _lineaId,
-        'lineaName': _lineaName,
-        'planIndex': _planIndex,
-        'planTitle': _planTitle,
-        'planDesc': _planDesc,
-        'planPrice': _planPrice.toStringAsFixed(2),
-        'modeloSeleccionado': _modelo,
-        'posPrice': _posPrice.toStringAsFixed(2),
-        'total': _total.toStringAsFixed(2),
-        'serialEquipo': _serialEquipo,
-        'serialSim': _serialSim,
-      },
+      '/ventas/pago/pdv', // ⬅️ tu ruta de pago por PDV
+      arguments: _buildArgs(),
     );
   }
 
   void _goEfectivo() {
-// TODO: implementa cuando tengas la pantalla
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Pantalla de Efectivo (pendiente).')),
+    Navigator.pushNamed(
+      context,
+      '/ventas/pago/efectivo', // ⬅️ ahora navega a efectivo
+      arguments: _buildArgs(),
+    );
+  }
+
+  void _goAccessComerce() {
+    Navigator.pushNamed(
+      context,
+      '/ventas/pago/access-comerce', // ⬅️ nuevo flujo
+      arguments: _buildArgs(),
     );
   }
 
@@ -207,8 +204,7 @@ class _VentasContadoFinanciadoScreenState
                             ),
                             const SizedBox(height: 12),
                             Text('Cliente (RIF): ${_rif.isEmpty ? '—' : _rif}'),
-                            Text(
-                                'Operadora: ${_lineaName.isEmpty ? '—' : _lineaName}'),
+                            Text('Operadora: ${_lineaName.isEmpty ? '—' : _lineaName}'),
                             const SizedBox(height: 12),
                             const Text(
                               'Plan seleccionado:',
@@ -217,8 +213,7 @@ class _VentasContadoFinanciadoScreenState
                             ),
                             Text('• Plan ${_planIndex}: $_planTitle'),
                             Text(_planDesc),
-                            Text(
-                                'Precio plan: \$${_planPrice.toStringAsFixed(2)}'),
+                            Text('Precio plan: \$${_planPrice.toStringAsFixed(2)}'),
                             const SizedBox(height: 12),
                             const Text(
                               'Modelo de POS:',
@@ -226,8 +221,7 @@ class _VentasContadoFinanciadoScreenState
                                   fontWeight: FontWeight.w700, fontSize: 15),
                             ),
                             Text('• ${_modelo ?? '—'}'),
-                            Text(
-                                'Precio POS: \$${_posPrice.toStringAsFixed(2)}'),
+                            Text('Precio POS: \$${_posPrice.toStringAsFixed(2)}'),
                             const SizedBox(height: 12),
                             Text(
                               'TOTAL: \$${_total.toStringAsFixed(2)}',
@@ -242,7 +236,7 @@ class _VentasContadoFinanciadoScreenState
 
                       const SizedBox(height: 18),
 
-// Botones
+// Botones (se mantienen, añadimos Access/Comerce y Efectivo navega)
                       _bigActionButton(
                         icon: Icons.account_balance_outlined,
                         label: 'Transferencia Bancaria',
@@ -259,6 +253,12 @@ class _VentasContadoFinanciadoScreenState
                         icon: Icons.payments_outlined,
                         label: 'Efectivo en Tienda',
                         onPressed: _goEfectivo,
+                      ),
+                      const SizedBox(height: 12),
+                      _bigActionButton(
+                        icon: Icons.link_outlined,
+                        label: 'Access / Comerce',
+                        onPressed: _goAccessComerce,
                       ),
                     ],
                   ),
@@ -283,8 +283,7 @@ class _VentasContadoFinanciadoScreenState
         icon: Icon(icon),
         label: Text(label),
         style: ElevatedButton.styleFrom(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
