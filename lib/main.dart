@@ -52,7 +52,6 @@ import 'features/operator/ventas/presentation/ventas_contado_financiado.dart';
 
 // ===== NUEVO: pago por transferencia + chequeo =====
 import 'features/operator/ventas/presentation/ventas_transferencia_bancaria.dart';
-import 'features/operator/ventas/presentation/ventas_chequeo.dart';
 
 // ===== NUEVO: pago por PDV + datos finales =====
 import 'features/operator/ventas/presentation/venta_pdv_pago.dart';
@@ -147,7 +146,7 @@ class MyApp extends StatelessWidget {
         '/ventas/pago/transferencia': (context) =>
         const VentasTransferenciaBancariaScreen(),
         '/ventas/chequeo': (context) =>
-        const VentasChequeoScreen(rif: ''),
+        const VentasDatosFinalesScreen(),
 
 // NUEVO: PDV y datos finales
         '/ventas/pago/pdv': (context) =>

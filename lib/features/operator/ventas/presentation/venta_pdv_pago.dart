@@ -54,7 +54,8 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _fecha = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    _fecha =
+    '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     _hora = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
 // Por defecto: terminal, aprobación, lote, referencia
@@ -72,7 +73,7 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
     _lineaName = (args['lineaName'] ?? '').toString();
     _planTitle = (args['planTitle'] ?? '').toString();
     _planPriceStr = (args['planPrice'] ?? '0').toString();
-    _modeloSeleccionado= (args['modeloSeleccionado'])?.toString();
+    _modeloSeleccionado = (args['modeloSeleccionado'])?.toString();
     _posPriceStr = (args['posPrice'] ?? '0').toString();
     _serialEquipo = (args['serialEquipo'])?.toString();
     _serialSim = (args['serialSim'])?.toString();
@@ -111,7 +112,8 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
           children: [
 // Header
             Container(
-              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+              decoration:
+              BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               child: Row(
@@ -147,14 +149,20 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _rowIconText(Icons.person_outline, 'Cliente (RIF): ${_rif.isEmpty ? '—' : _rif}'),
-                            _rowIconText(Icons.hub_outlined, 'Operadora: ${_lineaName.isEmpty ? '—' : _lineaName}'),
+                            _rowIconText(Icons.person_outline,
+                                'Cliente (RIF): ${_rif.isEmpty ? '—' : _rif}'),
+                            _rowIconText(Icons.hub_outlined,
+                                'Operadora: ${_lineaName.isEmpty ? '—' : _lineaName}'),
                             const SizedBox(height: 8),
-                            const Text('Plan seleccionado:', style: TextStyle(fontWeight: FontWeight.w700)),
-                            Text('• ${_planTitle.isEmpty ? 'Plan' : _planTitle} — \$${_planPrice.toStringAsFixed(2)}'),
+                            const Text('Plan seleccionado:',
+                                style: TextStyle(fontWeight: FontWeight.w700)),
+                            Text(
+                                '• ${_planTitle.isEmpty ? 'Plan' : _planTitle} — \$${_planPrice.toStringAsFixed(2)}'),
                             const SizedBox(height: 8),
-                            const Text('Modelo de POS:', style: TextStyle(fontWeight: FontWeight.w700)),
-                            Text('• ${_modeloSeleccionado ?? '—'} — \$${_posPrice.toStringAsFixed(2)}'),
+                            const Text('Modelo de POS:',
+                                style: TextStyle(fontWeight: FontWeight.w700)),
+                            Text(
+                                '• ${_modeloSeleccionado ?? '—'} — \$${_posPrice.toStringAsFixed(2)}'),
                             const SizedBox(height: 10),
                             Text('TOTAL: \$${_total.toStringAsFixed(2)}',
                                 style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -177,11 +185,13 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                                   border: OutlineInputBorder(),
                                 ),
                                 items: bancos
-                                    .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                                    .map((b) =>
+                                    DropdownMenuItem(value: b, child: Text(b)))
                                     .toList(),
                                 value: _bancoPdv,
                                 onChanged: (v) => setState(() => _bancoPdv = v),
-                                validator: (v) => v == null ? 'Selecciona el banco' : null,
+                                validator: (v) =>
+                                v == null ? 'Selecciona el banco' : null,
                               ),
                               const SizedBox(height: 12),
 
@@ -192,7 +202,9 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                                   labelText: 'Comercio',
                                   border: OutlineInputBorder(),
                                 ),
-                                validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa el comercio' : null,
+                                validator: (v) => (v == null || v.trim().isEmpty)
+                                    ? 'Ingresa el comercio'
+                                    : null,
                               ),
                               const SizedBox(height: 12),
 
@@ -231,11 +243,15 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                                   border: OutlineInputBorder(),
                                 ),
                                 items: const [
-                                  DropdownMenuItem(value: 'Visa', child: Text('Visa')),
-                                  DropdownMenuItem(value: 'MasterCard', child: Text('MasterCard')),
+                                  DropdownMenuItem(
+                                      value: 'Visa', child: Text('Visa')),
+                                  DropdownMenuItem(
+                                      value: 'MasterCard',
+                                      child: Text('MasterCard')),
                                 ],
                                 value: _cardBrand,
-                                onChanged: (v) => setState(() => _cardBrand = v ?? 'Visa'),
+                                onChanged: (v) =>
+                                    setState(() => _cardBrand = v ?? 'Visa'),
                               ),
                               const SizedBox(height: 12),
 
@@ -250,8 +266,10 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                                         border: OutlineInputBorder(),
                                       ),
                                       validator: (v) {
-                                        final s = (v ?? '').trim().toUpperCase();
-                                        final ok = RegExp(r'^[A-Z]{2}\d{3}$').hasMatch(s);
+                                        final s =
+                                        (v ?? '').trim().toUpperCase();
+                                        final ok = RegExp(r'^[A-Z]{2}\d{3}$')
+                                            .hasMatch(s);
                                         return ok ? null : 'Formato inválido';
                                       },
                                     ),
@@ -264,8 +282,10 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                                         labelText: 'Aprobación (6 dígitos)',
                                         border: OutlineInputBorder(),
                                       ),
-                                      validator: (v) =>
-                                      RegExp(r'^\d{6}$').hasMatch((v ?? '').trim()) ? null : '6 dígitos',
+                                      validator: (v) => RegExp(r'^\d{6}$')
+                                          .hasMatch((v ?? '').trim())
+                                          ? null
+                                          : '6 dígitos',
                                     ),
                                   ),
                                 ],
@@ -282,8 +302,10 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                                         labelText: 'Afiliado (8 dígitos)',
                                         border: OutlineInputBorder(),
                                       ),
-                                      validator: (v) =>
-                                      RegExp(r'^\d{8}$').hasMatch((v ?? '').trim()) ? null : '8 dígitos',
+                                      validator: (v) => RegExp(r'^\d{8}$')
+                                          .hasMatch((v ?? '').trim())
+                                          ? null
+                                          : '8 dígitos',
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -294,8 +316,10 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                                         labelText: 'Lote (000 + 3 dígitos)',
                                         border: OutlineInputBorder(),
                                       ),
-                                      validator: (v) =>
-                                      RegExp(r'^000\d{3}$').hasMatch((v ?? '').trim()) ? null : 'Ej: 000123',
+                                      validator: (v) => RegExp(r'^000\d{3}$')
+                                          .hasMatch((v ?? '').trim())
+                                          ? null
+                                          : 'Ej: 000123',
                                     ),
                                   ),
                                 ],
@@ -309,11 +333,14 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                                     child: TextFormField(
                                       controller: _referenciaCtrl,
                                       decoration: const InputDecoration(
-                                        labelText: 'Referencia (0000 + 2 dígitos)',
+                                        labelText:
+                                        'Referencia (0000 + 2 dígitos)',
                                         border: OutlineInputBorder(),
                                       ),
-                                      validator: (v) =>
-                                      RegExp(r'^0000\d{2}$').hasMatch((v ?? '').trim()) ? null : 'Ej: 000012',
+                                      validator: (v) => RegExp(r'^0000\d{2}$')
+                                          .hasMatch((v ?? '').trim())
+                                          ? null
+                                          : 'Ej: 000012',
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -321,13 +348,21 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                                     child: TextFormField(
                                       controller: _montoCtrl,
                                       decoration: InputDecoration(
-                                        labelText: 'Monto pagado (Total: \$${_total.toStringAsFixed(2)})',
+                                        labelText:
+                                        'Monto pagado (Total: \$${_total.toStringAsFixed(2)})',
                                         border: const OutlineInputBorder(),
                                       ),
-                                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                      keyboardType:
+                                      TextInputType.numberWithOptions(
+                                          decimal: true),
                                       validator: (v) {
-                                        final n = double.tryParse((v ?? '').replaceAll(',', '.').trim());
-                                        if (n == null || n <= 0) return 'Monto inválido';
+                                        final n = double.tryParse(
+                                            (v ?? '')
+                                                .replaceAll(',', '.')
+                                                .trim());
+                                        if (n == null || n <= 0) {
+                                          return 'Monto inválido';
+                                        }
                                         return null;
                                       },
                                     ),
@@ -347,7 +382,8 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
                           icon: const Icon(Icons.save_outlined),
                           label: const Text('Guardar y continuar'),
                           style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ),
@@ -369,7 +405,8 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sesión inválida')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Sesión inválida')));
       return;
     }
 
@@ -380,7 +417,8 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
     final aprobacion = _aprobacionCtrl.text.trim();
     final lote = _loteCtrl.text.trim();
     final referencia = _referenciaCtrl.text.trim();
-    final montoPagado = double.parse(_montoCtrl.text.replaceAll(',', '.').trim());
+    final montoPagado =
+    double.parse(_montoCtrl.text.replaceAll(',', '.').trim());
 
 // Si el cliente ya tiene afiliación en Cliente_completo, úsala
     final afiliadoFinal = await _afiliadoPreferido(afiliado);
@@ -422,21 +460,35 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
       await _ajustarDeudaCliente(_rif, _total, montoPagado);
 
       if (!mounted) return;
-      Navigator.pushNamed(context, '/ventas/datos-finales', arguments: {
-        'rif': _rif,
-        'montoPagado': montoPagado,
-        'total': _total,
-        'metodo': 'PDV',
-        'referencia': referencia,
-        'banco': banco,
-      });
+// --------- ÚNICO CAMBIO CRÍTICO ---------
+      Navigator.pushNamed(
+        context,
+        '/ventas/datos-finales',
+        arguments: {
+          'tipo': 'pdv', // <- NECESARIO para pintar el comprobante
+          'rif': _rif,
+          'banco': banco,
+          'cardBrand': _cardBrand,
+          'comercio': comercio,
+          'terminal': terminal,
+          'afiliado': afiliadoFinal,
+          'aprobacion': aprobacion,
+          'lote': lote,
+          'referencia': referencia,
+          'fecha': _fecha,
+          'hora': _hora,
+          'monto': montoPagado, // la pantalla usa 'monto'
+          'total': _total,
+        },
+      );
     } on FirebaseException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -459,7 +511,8 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
     return afiliadoIngresado; // fallback al ingresado
   }
 
-  Future<void> _ajustarDeudaCliente(String rif, double total, double pagado) async {
+  Future<void> _ajustarDeudaCliente(
+      String rif, double total, double pagado) async {
     final rifLower = rif.trim().toLowerCase();
     final col = FirebaseFirestore.instance.collection('Cliente_completo');
     final q = await col.where('rif_lower', isEqualTo: rifLower).limit(1).get();
@@ -484,7 +537,12 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
 
 // -------------------- Helpers --------------------
   static double _parseMoney(String raw) {
-    final s = raw.replaceAll('\$', '').replaceAll('USD', '').replaceAll('Bs', '').replaceAll(',', '.').trim();
+    final s = raw
+        .replaceAll('\$', '')
+        .replaceAll('USD', '')
+        .replaceAll('Bs', '')
+        .replaceAll(',', '.')
+        .trim();
     return double.tryParse(s) ?? 0.0;
   }
 
@@ -518,15 +576,21 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.receipt_long, color: Colors.black54), const SizedBox(width: 8),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            const Icon(Icons.receipt_long, color: Colors.black54),
+            const SizedBox(width: 8),
+            Text(title,
+                style:
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 12),
           child,
@@ -538,7 +602,8 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
   Widget _rowIconText(IconData i, String t) {
     return Row(
       children: [
-        Icon(i, color: Colors.black54), const SizedBox(width: 8),
+        Icon(i, color: Colors.black54),
+        const SizedBox(width: 8),
         Expanded(child: Text(t)),
       ],
     );

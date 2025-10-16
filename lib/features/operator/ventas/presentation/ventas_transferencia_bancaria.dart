@@ -46,8 +46,10 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _fecha = "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-    _hora = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    _fecha =
+    "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    _hora =
+    "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
 // Generar un número de aprobación de 6 dígitos (editable)
     _aprobacionCtrl.text = _random6();
@@ -58,7 +60,8 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = (ModalRoute.of(context)?.settings.arguments ?? {}) as Map<String, dynamic>;
+    final args =
+    (ModalRoute.of(context)?.settings.arguments ?? {}) as Map<String, dynamic>;
 
     _rif = (args['rif'] ?? '').toString();
     _totalAPagar = _toDouble(args['total']);
@@ -84,7 +87,12 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
     if (v == null) return 0;
     if (v is num) return v.toDouble();
     if (v is String) {
-      final s = v.replaceAll('\$', '').replaceAll('USD', '').replaceAll('Bs', '').replaceAll(',', '.').trim();
+      final s = v
+          .replaceAll('\$', '')
+          .replaceAll('USD', '')
+          .replaceAll('Bs', '')
+          .replaceAll(',', '.')
+          .trim();
       return double.tryParse(s) ?? 0;
     }
     return 0;
@@ -105,7 +113,10 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
         final data = q.docs.first.data();
         final nombre = (data['first_name'] ?? '').toString();
         final apellido = (data['last_name'] ?? '').toString();
-        setState(() => _clienteNombre = [nombre, apellido].where((e) => e.trim().isNotEmpty).join(' ').trim());
+        setState(() => _clienteNombre = [nombre, apellido]
+            .where((e) => e.trim().isNotEmpty)
+            .join(' ')
+            .trim());
       }
     } catch (_) {}
   }
@@ -113,7 +124,8 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     if (_banco == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecciona el banco.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Selecciona el banco.')));
       return;
     }
 
@@ -176,13 +188,15 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transferencia guardada.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Transferencia guardada.')));
 
-// ⬇️⬇️ ÚNICO CAMBIO: ahora navega a /ventas/datos-finales
+// ⬇️⬇️ CAMBIO: enviamos el tipo para que la factura se pinte correctamente
       Navigator.pushNamed(
         context,
         '/ventas/datos-finales',
         arguments: {
+          'tipo': 'transferencia', // <-- IMPORTANTE
           'rif': _rif,
           'monto': monto,
           'total': _totalAPagar,
@@ -192,14 +206,17 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
           'referencia': referencia,
           'fecha': _fecha,
           'hora': _hora,
+          'comercio': comercio,
         },
       );
     } on FirebaseException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error inesperado: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error inesperado: $e')));
     }
   }
 
@@ -212,7 +229,8 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
           children: [
 // Header
             Container(
-              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+              decoration:
+              BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               child: Row(
@@ -225,7 +243,8 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
                   const Spacer(),
                   const Text(
                     'Transferencia bancaria',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
+                    style: TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
                   ),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -256,7 +275,8 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
                             icon: const Icon(Icons.save_outlined),
                             label: const Text('Guardar y continuar'),
                             style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
                         ),
@@ -282,13 +302,15 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
           Row(children: const [
             Icon(Icons.receipt_long, color: Colors.black54),
             SizedBox(width: 8),
-            Text('Resumen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text('Resumen',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 10),
           Text('RIF: ${_rif.isEmpty ? '—' : _rif}'),
           Text('Cliente: ${_clienteNombre.isEmpty ? '—' : _clienteNombre}'),
           const SizedBox(height: 6),
-          Text('Total a pagar: \$${_totalAPagar.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text('Total a pagar: \$${_totalAPagar.toStringAsFixed(2)}',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
           Text('Fecha: $_fecha Hora: $_hora'),
         ],
@@ -318,7 +340,9 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
               labelText: 'Banco',
               border: OutlineInputBorder(),
             ),
-            items: _bancos.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+            items: _bancos
+                .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                .toList(),
             onChanged: (v) => setState(() => _banco = v),
             validator: (v) => v == null ? 'Selecciona el banco' : null,
           ),
@@ -354,7 +378,9 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
             keyboardType: TextInputType.number,
             validator: (v) {
               final s = (v ?? '').trim();
-              if (!RegExp(r'^\d{6}$').hasMatch(s)) return 'Deben ser 6 dígitos';
+              if (!RegExp(r'^\d{6}$').hasMatch(s)) {
+                return 'Deben ser 6 dígitos';
+              }
               return null;
             },
           ),
@@ -368,9 +394,11 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
               hintText: 'Ej: 206.00',
               border: OutlineInputBorder(),
             ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType:
+            const TextInputType.numberWithOptions(decimal: true),
             validator: (v) {
-              final n = double.tryParse((v ?? '').replaceAll(',', '.').trim());
+              final n =
+              double.tryParse((v ?? '').replaceAll(',', '.').trim());
               if (n == null || n <= 0) return 'Monto inválido';
               return null;
             },
@@ -389,7 +417,9 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
             keyboardType: TextInputType.number,
             validator: (v) {
               final s = (v ?? '').trim();
-              if (!_isReferenciaValida(s)) return 'Debe empezar con 00 y tener 6 dígitos (00####)';
+              if (!_isReferenciaValida(s)) {
+                return 'Debe empezar con 00 y tener 6 dígitos (00####)';
+              }
               return null;
             },
           ),
@@ -401,6 +431,8 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
   BoxDecoration _cardDeco() => BoxDecoration(
     color: Colors.white,
     borderRadius: BorderRadius.circular(12),
-    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
+    boxShadow: const [
+      BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))
+    ],
   );
 }

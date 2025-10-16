@@ -14,9 +14,9 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
 
   final _formKey = GlobalKey<FormState>();
 
-// Args que llegan (igual que en los otros flujos)
+// Args
   String _rif = '';
-  String _clienteNombre = ''; // opcional, lo buscamos por RIF
+  String _clienteNombre = '';
   double _totalAPagar = 0.0;
 
 // Controles
@@ -25,13 +25,16 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
   final _montoCtrl = TextEditingController();
 
 // Campos especiales
-  final _aprobacionCtrl = TextEditingController(); // 6 dígitos iniciando en 0
-  final _traceCtrl = TextEditingController(); // 4 dígitos
-  final _afiliadoCtrl = TextEditingController(); // 8 dígitos
+  final _aprobacionCtrl = TextEditingController();
+  final _traceCtrl = TextEditingController();
+  final _afiliadoCtrl = TextEditingController();
+  final _terminalCtrl = TextEditingController();
+  final _loteCtrl = TextEditingController();
+  final _referenciaCtrl = TextEditingController();
 
   String? _banco;
-  late final String _fecha; // yyyy-mm-dd
-  late final String _hora; // HH:mm
+  late final String _fecha;
+  late final String _hora;
 
   final _bancos = const [
     'Bancamiga',
@@ -48,13 +51,15 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _fecha = "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    _fecha = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
     _hora = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
-// Generamos por defecto (EDITABLES):
-    _aprobacionCtrl.text = _randomAprobacion6(); // 6 dígitos empezando por 0
-    _traceCtrl.text = _random4(); // 4 dígitos
-    _afiliadoCtrl.text = _random8(); // 8 dígitos
+// Defaults
+    _aprobacionCtrl.text = _randomAprobacion6();
+    _traceCtrl.text = _random4();
+    _afiliadoCtrl.text = _random8();
+    _terminalCtrl.text = _randomNDigits(4);
+    _loteCtrl.text = _randomNDigits(2).padLeft(2, '0');
   }
 
   @override
@@ -63,50 +68,48 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
     final args = (ModalRoute.of(context)?.settings.arguments ?? {}) as Map<String, dynamic>;
     _rif = (args['rif'] ?? '').toString();
     _totalAPagar = _toDouble(args['total']);
-
     _cargarNombreClientePorRif(_rif);
   }
 
   @override
   void dispose() {
-    _empresaCtrl.dispose();
-    _ubicacionCtrl.dispose();
-    _montoCtrl.dispose();
-    _aprobacionCtrl.dispose();
-    _traceCtrl.dispose();
-    _afiliadoCtrl.dispose();
+    for (var c in [
+      _empresaCtrl,
+      _ubicacionCtrl,
+      _montoCtrl,
+      _aprobacionCtrl,
+      _traceCtrl,
+      _afiliadoCtrl,
+      _terminalCtrl,
+      _loteCtrl,
+      _referenciaCtrl
+    ]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
 // ====================== Utils ======================
-
-  String _random4() => (Random().nextInt(9000) + 1000).toString(); // 4 dígitos
-  String _random8() => (Random().nextInt(90000000) + 10000000).toString(); // 8 dígitos
-
-// 6 dígitos que INICIE en 0: "0" + 5 dígitos aleatorios
-  String _randomAprobacion6() {
-    final tail = (Random().nextInt(90000) + 10000).toString(); // 5 dígitos
-    return '0$tail'; // ej: 045678
-  }
+  String _random4() => (Random().nextInt(9000) + 1000).toString();
+  String _random8() => (Random().nextInt(90000000) + 10000000).toString();
+  String _randomNDigits(int n) => List.generate(n, (_) => Random().nextInt(10)).join();
+  String _randomAprobacion6() => '0${(Random().nextInt(90000) + 10000)}';
 
   double _toDouble(dynamic v) {
-    if (v == null) return 0;
     if (v is num) return v.toDouble();
     if (v is String) {
-      final s = v
-          .replaceAll('\$', '')
-          .replaceAll('USD', '')
-          .replaceAll('Bs', '')
-          .replaceAll(',', '.')
-          .trim();
+      final s = v.replaceAll(RegExp(r'[^\d.,]'), '').replaceAll(',', '.');
       return double.tryParse(s) ?? 0;
     }
     return 0;
   }
 
-  bool _isAprobacionValida(String v) => RegExp(r'^0\d{5}$').hasMatch(v); // 6 dígitos empezando en 0
-  bool _isTraceValido(String v) => RegExp(r'^\d{4}$').hasMatch(v); // 4 dígitos
-  bool _isAfiliadoValido(String v) => RegExp(r'^\d{8}$').hasMatch(v); // 8 dígitos
+  bool _isAprobacionValida(String v) => RegExp(r'^0\d{5}$').hasMatch(v);
+  bool _isTraceValido(String v) => RegExp(r'^\d{4}$').hasMatch(v);
+  bool _isAfiliadoValido(String v) => RegExp(r'^\d{8}$').hasMatch(v);
+  bool _isTerminalValida(String v) => RegExp(r'^\d{4}$').hasMatch(v);
+  bool _isLoteValido(String v) => RegExp(r'^\d{2}$').hasMatch(v);
+  bool _isReferenciaValida(String v) => RegExp(r'^00\d{4}$').hasMatch(v);
 
   Future<void> _cargarNombreClientePorRif(String rif) async {
     if (rif.isEmpty) return;
@@ -118,22 +121,21 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
           .get();
 
       if (q.docs.isNotEmpty) {
-        final data = q.docs.first.data();
-        final nombre = (data['first_name'] ?? '').toString();
-        final apellido = (data['last_name'] ?? '').toString();
+        final d = q.docs.first.data();
         setState(() {
-          _clienteNombre = [nombre, apellido].where((e) => e.trim().isNotEmpty).join(' ').trim();
+          final nombre = (d['first_name'] ?? '').toString();
+          final apellido = (d['last_name'] ?? '').toString();
+          _clienteNombre = [nombre, apellido].where((x) => x.trim().isNotEmpty).join(' ');
         });
       }
     } catch (_) {}
   }
 
+// ====================== Guardar ======================
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     if (_banco == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona el banco.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecciona el banco.')));
       return;
     }
 
@@ -142,32 +144,34 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
     final aprobacion = _aprobacionCtrl.text.trim();
     final trace = _traceCtrl.text.trim();
     final afiliado = _afiliadoCtrl.text.trim();
+    final terminal = _terminalCtrl.text.trim();
+    final lote = _loteCtrl.text.trim();
+    final referencia = _referenciaCtrl.text.trim();
     final montoPag = _toDouble(_montoCtrl.text);
 
     try {
       final firestore = FirebaseFirestore.instance;
 
-// 1) Guardar pago Access/Comerce
       await firestore.collection('pagos_access_comerce').add({
         'rif': _rif,
         'nombre': _clienteNombre,
         'empresa': empresa,
         'ubicacion': ubicacion,
         'banco': _banco,
-        'aprobacion': aprobacion, // debe iniciar en 0 (validado)
-        'trace': trace, // 4 dígitos
-        'afiliado': afiliado, // 8 dígitos
+        'aprobacion': aprobacion,
+        'trace': trace,
+        'afiliado': afiliado,
+        'terminal': terminal,
+        'lote': lote,
+        'referencia': referencia,
         'monto': montoPag,
         'fecha': _fecha,
         'hora': _hora,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-// 2) Ajustar deuda en Cliente_completo
-// Si monto < total → deuda += (total - monto)
-// Si monto > total → deuda -= (monto - total) (sin bajar de 0)
+// Deuda
       final diff = montoPag - _totalAPagar;
-
       final q = await firestore
           .collection('Cliente_completo')
           .where('rif_lower', isEqualTo: _rif.toLowerCase())
@@ -177,19 +181,11 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
       if (q.docs.isNotEmpty) {
         final ref = q.docs.first.reference;
         final data = q.docs.first.data();
-
         final double deudaActual = _toDouble(data['deuda']);
-        double nuevaDeuda;
-        if (diff < 0) {
-// Pagó menos → aumenta deuda
-          nuevaDeuda = deudaActual + (-diff);
-        } else if (diff > 0) {
-// Pagó de más → reduce deuda
-          final tmp = deudaActual - diff;
-          nuevaDeuda = tmp < 0 ? 0 : tmp;
-        } else {
-          nuevaDeuda = deudaActual;
-        }
+        double nuevaDeuda = deudaActual;
+
+        if (diff < 0) nuevaDeuda += (-diff);
+        else if (diff > 0) nuevaDeuda = (deudaActual - diff).clamp(0, double.infinity);
 
         await ref.update({
           'deuda': double.parse(nuevaDeuda.toStringAsFixed(2)),
@@ -198,15 +194,12 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pago Access/Comerce guardado.')),
-      );
 
-// 3) Ir a datos finales
       Navigator.pushNamed(
         context,
         '/ventas/datos-finales',
         arguments: {
+          'tipo': 'access',
           'rif': _rif,
           'monto': montoPag,
           'total': _totalAPagar,
@@ -216,25 +209,20 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
           'afiliado': afiliado,
           'empresa': empresa,
           'ubicacion': ubicacion,
+          'terminal': terminal,
+          'lote': lote,
+          'referencia': referencia, // ✅ ahora sí se llama igual que en el comprobante
           'fecha': _fecha,
           'hora': _hora,
         },
       );
-    } on FirebaseException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al guardar: ${e.message ?? e.code}')),
-      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error inesperado: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
 // ====================== UI ======================
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -247,21 +235,11 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
               decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.black87),
-                    tooltip: 'Volver',
-                  ),
-                  const Spacer(),
-                  const Text(
-                    'Access / Comerce',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
-                  ),
-                  const Spacer(),
-                  const SizedBox(width: 48),
-                ],
+              child: const Center(
+                child: Text(
+                  'Access / Comerce',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
+                ),
               ),
             ),
             Container(width: double.infinity, height: 8, color: Colors.white),
@@ -311,16 +289,19 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: const [
-            Icon(Icons.receipt_long, color: Colors.black54),
-            SizedBox(width: 8),
-            Text('Resumen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          ]),
+          const Row(
+            children: [
+              Icon(Icons.receipt_long, color: Colors.black54),
+              SizedBox(width: 8),
+              Text('Resumen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            ],
+          ),
           const SizedBox(height: 10),
-          Text('RIF: ${_rif.isEmpty ? '—' : _rif}'),
-          Text('Cliente: ${_clienteNombre.isEmpty ? '—' : _clienteNombre}'),
+          if (_rif.isNotEmpty) Text('RIF: $_rif'),
+          if (_clienteNombre.isNotEmpty) Text('Cliente: $_clienteNombre'),
           const SizedBox(height: 6),
-          Text('Total a pagar: \$${_totalAPagar.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text('Total a pagar: \$${_totalAPagar.toStringAsFixed(2)}',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
           Text('Fecha: $_fecha Hora: $_hora'),
         ],
@@ -334,108 +315,54 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
       decoration: _cardDeco(),
       child: Column(
         children: [
-// Empresa / Local
-          TextFormField(
-            controller: _empresaCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Nombre de la empresa / local',
-              border: OutlineInputBorder(),
-            ),
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa el nombre de la empresa o local' : null,
+          _input(_empresaCtrl, 'Nombre de la empresa / local'),
+          _input(_ubicacionCtrl, 'Ubicación de la empresa / local'),
+          _dropdownBanco(),
+          _input(_aprobacionCtrl, 'N° de aprobación (0 + 5 dígitos)',
+              validator: (v) => _isAprobacionValida((v ?? '').trim()) ? null : 'Formato inválido'),
+          _input(_traceCtrl, 'Trace (4 dígitos)',
+              validator: (v) => _isTraceValido((v ?? '').trim()) ? null : '4 dígitos'),
+          _input(_afiliadoCtrl, 'Afiliado (8 dígitos)',
+              validator: (v) => _isAfiliadoValido((v ?? '').trim()) ? null : '8 dígitos'),
+          Row(
+            children: [
+              Expanded(child: _input(_terminalCtrl, 'Terminal (4 dígitos)',
+                  validator: (v) => _isTerminalValida((v ?? '').trim()) ? null : '4 dígitos')),
+              const SizedBox(width: 12),
+              Expanded(child: _input(_loteCtrl, 'Lote (2 dígitos)',
+                  validator: (v) => _isLoteValido((v ?? '').trim()) ? null : '2 dígitos')),
+            ],
           ),
-          const SizedBox(height: 12),
-
-// Ubicación
-          TextFormField(
-            controller: _ubicacionCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Ubicación de la empresa / local',
-              border: OutlineInputBorder(),
-            ),
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa la ubicación' : null,
-          ),
-          const SizedBox(height: 12),
-
-// Banco
-          DropdownButtonFormField<String>(
-            value: _banco,
-            decoration: const InputDecoration(
-              labelText: 'Banco',
-              border: OutlineInputBorder(),
-            ),
-            items: _bancos.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
-            onChanged: (v) => setState(() => _banco = v),
-            validator: (v) => v == null ? 'Selecciona el banco' : null,
-          ),
-          const SizedBox(height: 12),
-
-// Aprobación (6 dígitos, empezando en 0)
-          TextFormField(
-            controller: _aprobacionCtrl,
-            decoration: const InputDecoration(
-              labelText: 'N° de aprobación (debe iniciar con 0)',
-              border: OutlineInputBorder(),
-            ),
-            maxLength: 6,
-            keyboardType: TextInputType.number,
-            validator: (v) {
-              final s = (v ?? '').trim();
-              if (!_isAprobacionValida(s)) return 'Formato inválido (0 + 5 dígitos)';
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-
-// Trace (4 dígitos)
-          TextFormField(
-            controller: _traceCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Trace (4 dígitos)',
-              border: OutlineInputBorder(),
-            ),
-            maxLength: 4,
-            keyboardType: TextInputType.number,
-            validator: (v) {
-              final s = (v ?? '').trim();
-              if (!_isTraceValido(s)) return 'Deben ser 4 dígitos';
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-
-// Afiliado (8 dígitos)
-          TextFormField(
-            controller: _afiliadoCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Afiliado (8 dígitos)',
-              border: OutlineInputBorder(),
-            ),
-            maxLength: 8,
-            keyboardType: TextInputType.number,
-            validator: (v) {
-              final s = (v ?? '').trim();
-              if (!_isAfiliadoValido(s)) return 'Deben ser 8 dígitos';
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-
-// Monto transferido
-          TextFormField(
-            controller: _montoCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Monto transferido',
-              hintText: 'Ej: 206.00',
-              border: OutlineInputBorder(),
-            ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            validator: (v) {
-              final n = double.tryParse((v ?? '').replaceAll(',', '.').trim());
-              if (n == null || n <= 0) return 'Monto inválido';
-              return null;
-            },
-          ),
+          _input(_referenciaCtrl, 'Referencia (00 + 4 dígitos)',
+              validator: (v) => _isReferenciaValida((v ?? '').trim()) ? null : 'Debe ser 00####'),
+          _input(_montoCtrl, 'Monto transferido (ej: 206.00)',
+              validator: (v) => _toDouble(v) <= 0 ? 'Monto inválido' : null),
         ],
+      ),
+    );
+  }
+
+  Widget _input(TextEditingController c, String label, {String? Function(String?)? validator}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: c,
+        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+        validator: validator ??
+                (v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null,
+      ),
+    );
+  }
+
+  Widget _dropdownBanco() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        value: _banco,
+        decoration: const InputDecoration(labelText: 'Banco', border: OutlineInputBorder()),
+        items: _bancos.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+        onChanged: (v) => setState(() => _banco = v),
+        validator: (v) => v == null ? 'Selecciona el banco' : null,
       ),
     );
   }
