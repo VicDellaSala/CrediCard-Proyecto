@@ -177,7 +177,7 @@ class MyApp extends StatelessWidget {
         if (settings.name == '/ventas/guardar-todo') {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
-            builder: (_) => GuardarTodoPage(datos: args),
+            builder: (_) => VentasGuardarTodoScreen(),
           );
         }
 
