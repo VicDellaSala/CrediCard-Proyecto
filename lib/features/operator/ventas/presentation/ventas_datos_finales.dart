@@ -2,33 +2,29 @@ import 'package:flutter/material.dart';
 
 /// Pantalla de “Factura / Datos finales”
 ///
-/// Navega aquí con:
+/// Se llama con:
 /// Navigator.pushNamed(
 /// context,
 /// '/ventas/datos-finales',
 /// arguments: {
 /// 'tipo': 'transferencia' | 'pdv' | 'efectivo' | 'access' | 'comodato',
-/// // ---- TRANSFERENCIA ----
-/// // 'monto', 'comercio', 'fecha', 'hora', 'rif',
-/// // 'afiliado', 'aprobacion', 'referencia', 'terminal'(opcional)
 ///
-/// // ---- PDV ----
-/// // 'banco', 'cardBrand' ('Mastercard'|'Visa'),
-/// // 'comercio', 'rif', 'afiliado',
-/// // 'terminal', 'lote', 'fecha', 'hora',
-/// // 'aprobacion', 'referencia', 'monto'
+/// // TRANSFERENCIA:
+/// // 'monto','comercio','fecha','hora','rif','afiliado','aprobacion','referencia'
+/// // (opcional) 'terminal'
 ///
-/// // ---- EFECTIVO ----
-/// // 'moneda' ('Bs'|'USD'), 'monto', 'comercio',
-/// // 'rif', 'fecha', 'hora', 'aprobacion', 'referencia'
+/// // PDV:
+/// // 'banco','cardBrand','comercio','rif','afiliado','terminal','lote',
+/// // 'fecha','hora','aprobacion','referencia','monto'
 ///
-/// // ---- ACCESS ----
-/// // 'banco', 'comercio', 'direccion',
-/// // 'rif', 'afiliado', 'terminal', 'lote',
-/// // 'fecha', 'hora', 'aprobacion', 'referencia',
-/// // 'trace', 'monto'
+/// // EFECTIVO:
+/// // 'moneda' ('Bs'|'USD'),'monto','comercio','rif','fecha','hora','aprobacion','referencia'
 ///
-/// // ---- COMODATO ----
+/// // ACCESS:
+/// // 'banco','comercio','direccion','rif','afiliado','terminal','lote',
+/// // 'fecha','hora','aprobacion','referencia','trace','monto'
+///
+/// // COMODATO:
 /// // 'rif','fecha','hora','referencia','monto'
 /// },
 /// );
@@ -39,14 +35,19 @@ class VentasDatosFinalesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final args = (ModalRoute.of(context)?.settings.arguments ?? {}) as Map;
+    final Map args = (ModalRoute.of(context)?.settings.arguments ?? {}) as Map;
 
     String s(String k, [String d = '']) => (args[k]?.toString() ?? d);
     double n(String k) {
       final v = args[k];
       if (v is num) return v.toDouble();
       if (v is String) {
-        final t = v.replaceAll('\$', '').replaceAll('USD', '').replaceAll('Bs', '').replaceAll(',', '.').trim();
+        final t = v
+            .replaceAll('\$', '')
+            .replaceAll('USD', '')
+            .replaceAll('Bs', '')
+            .replaceAll(',', '.')
+            .trim();
         return double.tryParse(t) ?? 0;
       }
       return 0;
@@ -61,7 +62,10 @@ class VentasDatosFinalesScreen extends StatelessWidget {
           children: [
 // Header
             Container(
-              decoration: BoxDecoration(color: _panelColor, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                color: _panelColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
               child: Row(
@@ -74,7 +78,11 @@ class VentasDatosFinalesScreen extends StatelessWidget {
                   const Spacer(),
                   Text(
                     _tituloPorTipo(tipo),
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -83,16 +91,40 @@ class VentasDatosFinalesScreen extends StatelessWidget {
             ),
             Container(width: double.infinity, height: 8, color: Colors.white),
 
+// Contenido
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 750),
-                    child: _FacturaPorTipo(
-                      tipo: tipo,
-                      getS: s,
-                      getN: n,
+                    child: _FacturaPorTipo(tipo: tipo, getS: s, getN: n),
+                  ),
+                ),
+              ),
+            ),
+
+// Botón CONTINUAR (siempre)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+              child: SizedBox(
+                width: 750,
+                child: SizedBox(
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(
+                        context,
+                        '/ventas/guardar-todo',
+                        arguments: Map<String, dynamic>.from(args),
+                      );
+                    },
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('Continuar'),
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -172,7 +204,7 @@ class _FacturaTransferencia extends StatelessWidget {
     final hora = getS('hora', '—');
     final rif = getS('rif', '—');
     final afiliado = getS('afiliado', '—');
-    final terminal = getS('terminal', '—');
+    final terminal = getS('terminal', '—'); // opcional
     final aprob = getS('aprobacion', '—');
     final ref = getS('referencia', '—');
 
@@ -185,7 +217,11 @@ class _FacturaTransferencia extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               _money(monto, prefix: 'Bs. '),
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF0E2F6F)),
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0E2F6F),
+              ),
             ),
             const SizedBox(height: 2),
             const Text('Pago completado', style: TextStyle(color: Colors.black54)),
@@ -226,7 +262,7 @@ class _FacturaPDV extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final banco = getS('banco', '—');
-    final brand = getS('cardBrand', '—').toUpperCase();
+    final brand = getS('cardBrand', '—').toUpperCase(); // MASTERCARD / VISA
     final comercio = getS('comercio', '—');
     final rif = getS('rif', '—');
     final afiliado = getS('afiliado', '—');
@@ -244,7 +280,8 @@ class _FacturaPDV extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(banco, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            Text(banco, textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             const SizedBox(height: 4),
             const Text('RECIBO DE COMPRA', textAlign: TextAlign.center),
             Text(brand, textAlign: TextAlign.center),
@@ -277,7 +314,8 @@ class _FacturaPDV extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text('MONTO ${_money(monto, prefix: 'Bs. ')}', style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text('MONTO ${_money(monto, prefix: 'Bs. ')}',
+                style: const TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
             const Text('APROBADO', textAlign: TextAlign.center),
           ],
@@ -328,57 +366,9 @@ class _FacturaEfectivo extends StatelessWidget {
             Text(
               'Referencia: $ref',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFE67E22)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// ===================== COMODATO =====================
-class _FacturaComodato extends StatelessWidget {
-  final String Function(String, [String]) getS;
-  final double Function(String) getN;
-
-  const _FacturaComodato({required this.getS, required this.getN});
-
-  @override
-  Widget build(BuildContext context) {
-    final monto = getN('monto'); // este monto se cargó a deuda
-    final fecha = getS('fecha', '—');
-    final hora = getS('hora', '—');
-    final rif = getS('rif', '—');
-    final ref = getS('referencia', '—');
-
-    return _Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
-        child: Column(
-          children: [
-            const Icon(Icons.assignment_turned_in, color: Colors.blueGrey, size: 42),
-            const SizedBox(height: 10),
-            Text(
-              _money(monto, prefix: 'Bs. '),
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF0E2F6F)),
-            ),
-            const SizedBox(height: 4),
-            const Text('Monto cargado a deuda', style: TextStyle(color: Colors.black54)),
-
-            const SizedBox(height: 16),
-            _row2('Fecha', fecha),
-            _row2('Hora', hora),
-            _row2('RIF', rif),
-
-            const SizedBox(height: 18),
-            Text(
-              'Referencia: $ref',
-              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
                 color: Color(0xFFE67E22),
-                fontSize: 18,
               ),
             ),
           ],
@@ -398,8 +388,8 @@ class _FacturaAccess extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final banco = getS('banco', '—');
-    final comercio = getS('comercio', '—');
-    final direccion = getS('direccion', '—');
+    final comercio = getS('comercio', '—'); // nombre de empresa/local
+    final direccion = getS('direccion', '—'); // ubicación
     final rif = getS('rif', '—');
     final afiliado = getS('afiliado', '—');
     final terminal = getS('terminal', '—');
@@ -417,7 +407,9 @@ class _FacturaAccess extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(banco, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            Text(banco,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             const SizedBox(height: 4),
             const Text('RECIBO DE COMPRA', textAlign: TextAlign.center),
 
@@ -452,7 +444,64 @@ class _FacturaAccess extends StatelessWidget {
             ),
             Text('TRACE: $trace'),
             const SizedBox(height: 8),
-            Text('Monto: ${_money(monto, prefix: 'Bs. ')}', style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text('Monto: ${_money(monto, prefix: 'Bs. ')}',
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ===================== COMODATO =====================
+class _FacturaComodato extends StatelessWidget {
+  final String Function(String, [String]) getS;
+  final double Function(String) getN;
+
+  const _FacturaComodato({required this.getS, required this.getN});
+
+  @override
+  Widget build(BuildContext context) {
+    final monto = getN('monto'); // total cargado a deuda
+    final rif = getS('rif', '—');
+    final fecha = getS('fecha', '—');
+    final hora = getS('hora', '—');
+    final ref = getS('referencia', '—'); // 00 + 6 dígitos
+
+    return _Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+        child: Column(
+          children: [
+            const Icon(Icons.info, color: Colors.blueGrey, size: 40),
+            const SizedBox(height: 8),
+            Text(
+              _money(monto, prefix: 'Bs. '),
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0E2F6F),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Cargo a deuda por Comodato',
+              style: TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            _row2('RIF', rif),
+            _row2('Fecha', fecha),
+            _row2('Hora', hora),
+            const SizedBox(height: 10),
+            Text(
+              'Referencia: $ref',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: Color(0xFFE67E22),
+                fontSize: 18,
+              ),
+            ),
           ],
         ),
       ),

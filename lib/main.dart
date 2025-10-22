@@ -30,7 +30,7 @@ import 'features/operator/almacen/presentation/almacen_tarjetas_screen.dart';
 import 'features/operator/almacen/presentation/almacen_ver_equipos.dart';
 import 'features/operator/almacen/presentation/almacen_anadir_equipos.dart';
 
-// Tarjetas (ver / añadir) — archivo en singular para “añadir”
+// Tarjetas (ver / añadir)
 import 'features/operator/almacen/presentation/almacen_ver_tarjetas.dart';
 import 'features/operator/almacen/presentation/almacen_anadir_tarjeta.dart';
 
@@ -63,12 +63,14 @@ import 'features/operator/ventas/presentation/ventas_pago_efectivo.dart';
 // ===== NUEVO: Access / Comerce =====
 import 'features/operator/ventas/presentation/ventas_access_comerce.dart';
 
+// ===== NUEVO: Guardar Todo =====
+import 'features/operator/ventas/presentation/ventas_guardar_todo.dart';
+
 // Banco (nuevo rol)
 import 'features/bank/presentation/bank_home_screen.dart';
 import 'features/bank/presentation/bank_inbox_menu_screen.dart';
 import 'features/bank/presentation/bank_inbox_afiliados_screen.dart';
 import 'features/bank/presentation/bank_inbox_terminal_screen.dart';
-// import 'features/bank/presentation/bank_processed_screen.dart'; // si ya la tienes
 
 // ===== NUEVO: Compras (usuario)
 import 'features/user/compras/presentation/user_compra_comprobante.dart';
@@ -92,95 +94,68 @@ class MyApp extends StatelessWidget {
       title: 'Credicard',
       initialRoute: '/',
       routes: {
-// Base
+        // Base
         '/': (context) => const LandingScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
 
-// Rutas por rol
-        '/home': (context) => const UserHomeScreen(), // fallback
+        // Rutas por rol
+        '/home': (context) => const UserHomeScreen(),
         '/user': (context) => const UserHomeScreen(),
         '/supervisor': (context) => const SupervisorHomeScreen(),
         '/admin': (context) => const AdminHomeScreen(),
         '/admin/identity-requests': (context) => const IdentityRequestsScreen(),
 
-// Operador (panel)
+        // Operador (panel)
         '/operator': (context) => const OperatorHomeScreen(),
 
-// Operador > Módulos
+        // Operador > Módulos
         '/operator/ventas': (context) => const VentasScreen(),
         '/operator/consultas': (context) => const ConsultasScreen(),
         '/operator/reportes': (context) => const ReportesScreen(),
         '/operator/banco': (context) => const BancoScreen(),
         '/operator/finanzas': (context) => const FinanzasScreen(),
 
-// Operador > Almacén (menú y sub-rutas)
+        // Operador > Almacén
         '/operator/almacen': (context) => const AlmacenScreen(),
         '/operator/almacen/equipos': (context) => const AlmacenEquiposMenuScreen(),
 
-// Equipos
+        // Equipos
         '/operator/almacen/ver': (context) => const AlmacenVerEquiposScreen(),
         '/operator/almacen/anadir': (context) => const AlmacenAnadirEquiposScreen(),
 
-// Tarjetas de operadoras
-        '/operator/almacen/tarjetas': (context) =>
-        const AlmacenTarjetasOperadorasScreen(),
-        '/operator/almacen/tarjetas/ver': (context) =>
-        const AlmacenVerTarjetasOperadorasScreen(),
-        '/operator/almacen/tarjetas/add': (context) =>
-        const AlmacenAnadirTarjetasOperadorasScreen(),
+        // Tarjetas
+        '/operator/almacen/tarjetas': (context) => const AlmacenTarjetasOperadorasScreen(),
+        '/operator/almacen/tarjetas/ver': (context) => const AlmacenVerTarjetasOperadorasScreen(),
+        '/operator/almacen/tarjetas/add': (context) => const AlmacenAnadirTarjetasOperadorasScreen(),
 
-// Ventas > Equipos (lista de modelos)
+        // Ventas
         '/ventas/equipos': (context) => const VentasEquiposScreen(),
-
-// Ventas > Operadoras (selección de plan)
         '/ventas/operadoras': (context) => const VentasOperadorasScreen(),
-
-// Plan de pago + flujos
         '/ventas/plan': (context) => const VentasPlanDePagoScreen(),
         '/ventas/plan/comodato': (context) => const VentasComodatoScreen(),
-        '/ventas/plan/contado-financiado': (context) =>
-        const VentasContadoFinanciadoScreen(),
+        '/ventas/plan/contado-financiado': (context) => const VentasContadoFinanciadoScreen(),
+        '/ventas/pago/transferencia': (context) => const VentasTransferenciaBancariaScreen(),
+        '/ventas/chequeo': (context) => const VentasDatosFinalesScreen(),
+        '/ventas/pago/pdv': (context) => const VentaPdvPagoScreen(),
+        '/ventas/datos-finales': (context) => const VentasDatosFinalesScreen(),
+        '/ventas/pago/efectivo': (context) => const VentasPagoEfectivoScreen(),
+        '/ventas/pago/access-comerce': (context) => const VentasAccessComerceScreen(),
 
-// NUEVO: transferencia bancaria y chequeo
-        '/ventas/pago/transferencia': (context) =>
-        const VentasTransferenciaBancariaScreen(),
-        '/ventas/chequeo': (context) =>
-        const VentasDatosFinalesScreen(),
-
-// NUEVO: PDV y datos finales
-        '/ventas/pago/pdv': (context) =>
-        const VentaPdvPagoScreen(),
-        '/ventas/datos-finales': (context) =>
-        const VentasDatosFinalesScreen(),
-
-// NUEVO: EFECTIVO
-        '/ventas/pago/efectivo': (context) =>
-        const VentasPagoEfectivoScreen(),
-
-// NUEVO: ACCESS / COMERCE
-        '/ventas/pago/access-comerce': (context) =>
-        const VentasAccessComerceScreen(),
-
-// Banco
+        // Banco
         '/bank': (context) => const BankHomeScreen(),
         '/bank/inbox-menu': (context) => const BankInboxMenuScreen(),
         '/bank/inbox/afiliados': (context) => const BankInboxAfiliadosScreen(),
         '/bank/inbox/terminal': (context) => const BankInboxTerminalScreen(),
         '/bank/processed': (context) => const _BankProcessedPlaceholder(),
 
-// ===== NUEVO: Compras (usuario)
-        '/user/compras/comprobante': (context) =>
-        const UserCompraComprobanteScreen(),
-        '/user/compras/equipos': (context) =>
-        const UserCompraEquiposScreen(),
+        // Compras
+        '/user/compras/comprobante': (context) => const UserCompraComprobanteScreen(),
+        '/user/compras/equipos': (context) => const UserCompraEquiposScreen(),
       },
-
-// Construir Registro de Serial con argumentos (sin tocar)
       onGenerateRoute: (settings) {
         if (settings.name == '/ventas/operadoras/serial') {
           final a = (settings.arguments ?? {}) as Map<String, dynamic>;
-
           String _s(key) => (a[key] ?? '').toString();
           int _i(key) => int.tryParse('${a[key]}') ?? 0;
 
@@ -197,7 +172,16 @@ class MyApp extends StatelessWidget {
             ),
           );
         }
-        return null; // el resto lo gestiona `routes: {}`
+
+        // NUEVO: Guardar Todo
+        if (settings.name == '/ventas/guardar-todo') {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (_) => GuardarTodoPage(datos: args),
+          );
+        }
+
+        return null;
       },
     );
   }
