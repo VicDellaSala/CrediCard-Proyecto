@@ -141,6 +141,7 @@ class MyApp extends StatelessWidget {
         '/ventas/datos-finales': (context) => const VentasDatosFinalesScreen(),
         '/ventas/pago/efectivo': (context) => const VentasPagoEfectivoScreen(),
         '/ventas/pago/access-comerce': (context) => const VentasAccessComerceScreen(),
+        '/ventas/guardar-todo': (context) => const VentasGuardarTodoScreen(),
 
         // Banco
         '/bank': (context) => const BankHomeScreen(),

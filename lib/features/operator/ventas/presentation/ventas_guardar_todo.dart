@@ -51,6 +51,7 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
     _tipo = (_args['tipo'] ?? '').toString().toLowerCase();
 
     _cargarClientePorRif();
+    _cargarContextoVentaFallback(); // ⬅️ nuevo: completa modelo/seriales/precios si faltan
   }
 
   Future<void> _cargarClientePorRif() async {
@@ -74,6 +75,42 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
     } catch (_) {
       if (mounted) setState(() => _loadingCliente = false);
     }
+  }
+
+// ⬇️ NUEVO: si los args no traen modelo/serial/precios, intenta tomarlos del último pagos_pdv del RIF
+  Future<void> _cargarContextoVentaFallback() async {
+    final needsModelo = (_modeloSeleccionado == null || _modeloSeleccionado!.trim().isEmpty);
+    final needsSerialEq = (_serialEquipo == null || _serialEquipo!.trim().isEmpty);
+    final needsSerialSim = (_serialSim == null || _serialSim!.trim().isEmpty);
+    final needsPos = (_posPriceStr == null || _posPriceStr!.toString().trim().isEmpty);
+    final needsPlan = (_planPriceStr == null || _planPriceStr!.toString().trim().isEmpty) || (_planTitle == null || _planTitle!.trim().isEmpty);
+    final needsLinea = (_lineaName == null || _lineaName!.trim().isEmpty);
+
+    if (!(needsModelo || needsSerialEq || needsSerialSim || needsPos || needsPlan || needsLinea)) return;
+    if (_rif.isEmpty) return;
+
+    try {
+      final q = await FirebaseFirestore.instance
+          .collection('pagos_pdv')
+          .where('rif', isEqualTo: _rif)
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+
+      if (q.docs.isEmpty) return;
+      final d = q.docs.first.data();
+
+      if (!mounted) return;
+      setState(() {
+        _modeloSeleccionado = needsModelo ? (d['modeloSeleccionado']?.toString() ?? _modeloSeleccionado) : _modeloSeleccionado;
+        _serialEquipo = needsSerialEq ? (d['serialEquipo']?.toString() ?? _serialEquipo) : _serialEquipo;
+        _serialSim = needsSerialSim ? (d['serialSim']?.toString() ?? _serialSim) : _serialSim;
+        _posPriceStr = needsPos ? (d['posPrice']?.toString() ?? _posPriceStr) : _posPriceStr;
+        _planTitle = needsPlan ? (d['planTitle']?.toString() ?? _planTitle) : _planTitle;
+        _planPriceStr = needsPlan ? (d['planPrice']?.toString() ?? _planPriceStr) : _planPriceStr;
+        _lineaName = needsLinea ? (d['lineaName']?.toString() ?? _lineaName) : _lineaName;
+      });
+    } catch (_) {/* silencio */}
   }
 
   double _toDouble(dynamic v) {
@@ -143,17 +180,22 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
                               _kv('RIF', _rif.isEmpty ? '—' : _rif),
                               if (_lineaName?.isNotEmpty == true) _kv('Operadora', _lineaName!),
                               const SizedBox(height: 10),
-                              const Text('Plan', style: TextStyle(fontWeight: FontWeight.w700)),
-                              _bul('Título', _planTitle),
-                              _bul('Descripción', _planDesc),
-                              _bul('Precio plan', _money(_toDouble(_planPriceStr))),
-                              const SizedBox(height: 10),
+
+// Equipo POS
                               const Text('Equipo (POS)', style: TextStyle(fontWeight: FontWeight.w700)),
                               _bul('Modelo', _modeloSeleccionado),
                               _bul('Serial equipo', _serialEquipo),
                               _bul('Serial SIM', _serialSim),
                               _bul('Precio POS', _money(_toDouble(_posPriceStr))),
                               const SizedBox(height: 10),
+
+// Tarjeta operativa
+                              const Text('Tarjeta operativa', style: TextStyle(fontWeight: FontWeight.w700)),
+                              _bul('Operadora', _lineaName),
+                              _bul('Plan', _planTitle),
+                              _bul('Precio plan', _money(_toDouble(_planPriceStr))),
+                              const SizedBox(height: 10),
+
                               Text('TOTAL: ${_money(total)}',
                                   style: const TextStyle(fontWeight: FontWeight.w800)),
                             ],
@@ -226,17 +268,13 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
   }
 
   void _verComprobante() {
-// Reabrimos ventas_datos_finales con los mismos arguments que nos llegaron.
     Navigator.pushNamed(context, '/ventas/datos-finales', arguments: _args);
   }
 
   void _guardarYTerminar() {
-// Aquí luego integramos la lógica que decidas (cerrar flujo, crear documento maestro, etc.)
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('OK. Pendiente: lógica final de “Guardar y terminar”.')),
     );
-// Si quieres volver al panel del operador, por ejemplo:
-// Navigator.of(context).pushNamedAndRemoveUntil('/operator/ventas', (r) => false);
   }
 
 // ------ helpers UI ------
@@ -314,9 +352,41 @@ class _ClienteExpandable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-// ordenamos claves para que sea predecible
-    final entries = data.entries.toList()
+// Mapa de etiquetas amigables (ocultamos *_lower, created_by, updated_at)
+    final hidden = {'created_by','updated_at'};
+    final entries = data.entries.where((e) {
+      final k = e.key.toString();
+      return !k.endsWith('_lower') && !hidden.contains(k);
+    }).toList()
       ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+
+    String label(String k) {
+      switch (k) {
+        case 'address': return 'Dirección';
+        case 'afiliacion_numero': return 'Número de afiliación';
+        case 'afiliado': return 'Afiliado';
+        case 'bank': return 'Banco';
+        case 'created_at': return 'Creado el';
+        case 'email': return 'Email';
+        case 'first_name': return 'Nombre';
+        case 'last_name': return 'Apellido';
+        case 'full_name': return 'Nombre completo';
+        case 'phone_1': return 'Teléfono 1';
+        case 'phone_2': return 'Teléfono 2';
+        case 'rif': return 'RIF';
+        case 'deuda': return 'Deuda';
+        default: return k;
+      }
+    }
+
+    String pretty(dynamic v, String k) {
+      if (k == 'created_at' && v is Timestamp) {
+        final d = v.toDate();
+        String two(int x) => x.toString().padLeft(2, '0');
+        return '${two(d.day)}/${two(d.month)}/${d.year} ${two(d.hour)}:${two(d.minute)}';
+      }
+      return v?.toString() ?? '—';
+    }
 
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
@@ -326,12 +396,12 @@ class _ClienteExpandable extends StatelessWidget {
         const SizedBox(height: 6),
         ...entries.map((e) {
           final key = e.key.toString();
-          final val = _pretty(e.value);
+          final val = pretty(e.value, key);
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                Expanded(child: Text(key)),
+                Expanded(child: Text(label(key))),
                 Expanded(child: Text(val, textAlign: TextAlign.right)),
               ],
             ),
@@ -340,14 +410,6 @@ class _ClienteExpandable extends StatelessWidget {
         const SizedBox(height: 6),
       ],
     );
-  }
-
-  String _pretty(dynamic v) {
-    if (v == null) return '—';
-    if (v is num || v is String || v is bool) return v.toString();
-    if (v is List) return v.join(', ');
-    if (v is Map) return v.map((k, val) => MapEntry(k.toString(), val)).toString();
-    return v.toString();
   }
 }
 
@@ -368,9 +430,24 @@ class _MetodoPagoView extends StatelessWidget {
     return 0;
   }
 
+  String _prettyMetodo() {
+    switch (tipo) {
+      case 'pdv': return 'Punto de Venta';
+      case 'efectivo': return 'Efectivo';
+      case 'transferencia': return 'Transferencia bancaria';
+      case 'access': return 'Access Commerce';
+      case 'comodato': return 'Comodato';
+      default: return 'No identificado';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final children = <Widget>[];
+    final children = <Widget>[
+// ⬇️ Nuevo: encabezado con el tipo de pago
+      _row('Pagó con', _prettyMetodo()),
+    ];
+
     switch (tipo) {
       case 'transferencia':
         children.addAll([
