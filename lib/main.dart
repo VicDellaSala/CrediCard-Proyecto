@@ -18,8 +18,7 @@ import 'features/operator/presentation/operator_home_screen.dart';
 import 'features/operator/ventas/presentation/ventas_screen.dart';
 import 'features/operator/consultas/presentation/consultas_screen.dart';
 import 'features/operator/reportes/presentation/reportes_screen.dart';
-import 'features/operator/banco/presentation/banco_screen.dart';
-import 'features/operator/finanzas/presentation/finanzas_screen.dart';
+
 
 // Operator > Almacén (menú + subpantallas)
 import 'features/operator/almacen/presentation/almacen_screen.dart';
@@ -113,8 +112,7 @@ class MyApp extends StatelessWidget {
         '/operator/ventas': (context) => const VentasScreen(),
         '/operator/consultas': (context) => const ConsultasScreen(),
         '/operator/reportes': (context) => const ReportesScreen(),
-        '/operator/banco': (context) => const BancoScreen(),
-        '/operator/finanzas': (context) => const FinanzasScreen(),
+
 
         // Operador > Almacén
         '/operator/almacen': (context) => const AlmacenScreen(),

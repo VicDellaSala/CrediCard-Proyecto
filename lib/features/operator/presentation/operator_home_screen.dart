@@ -35,9 +35,7 @@ class OperatorHomeScreen extends StatelessWidget {
       _OpItem('Ventas', Icons.shopping_cart, '/operator/ventas'),
       _OpItem('Consultas', Icons.search, '/operator/consultas'),
       _OpItem('Reportes', Icons.bar_chart, '/operator/reportes'),
-      _OpItem('Banco', Icons.account_balance, '/operator/banco'),
       _OpItem('Almacén', Icons.inventory, '/operator/almacen'),
-      _OpItem('Finanzas', Icons.attach_money, '/operator/finanzas'),
     ];
 
     return Scaffold(
