@@ -14,6 +14,7 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
 // ---- args base (todo llega por arguments) ----
   late final Map<String, dynamic> _args;
   String _rif = '';
+  String? _lineaId;
   String? _lineaName;
   String? _planTitle;
   String? _planDesc;
@@ -31,6 +32,8 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
   DocumentSnapshot<Map<String, dynamic>>? _clienteDoc;
   bool _loadingCliente = true;
 
+  bool _saving = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -38,6 +41,7 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
 
 // Datos comunes de la venta (pueden venir desde varias pantallas)
     _rif = (_args['rif'] ?? '').toString();
+    _lineaId = _args['lineaId']?.toString();
     _lineaName = _args['lineaName']?.toString();
     _planTitle = _args['planTitle']?.toString();
     _planDesc = _args['planDesc']?.toString();
@@ -51,7 +55,7 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
     _tipo = (_args['tipo'] ?? '').toString().toLowerCase();
 
     _cargarClientePorRif();
-    _cargarContextoVentaFallback(); // ⬅️ nuevo: completa modelo/seriales/precios si faltan
+    _cargarContextoVentaFallback(); // ⬅️ completa modelo/seriales/precios si faltan
   }
 
   Future<void> _cargarClientePorRif() async {
@@ -77,7 +81,7 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
     }
   }
 
-// ⬇️ NUEVO: si los args no traen modelo/serial/precios, intenta tomarlos del último pagos_pdv del RIF
+// ⬇️ Si los args no traen modelo/serial/precios, intenta tomarlos del último pagos_pdv del RIF
   Future<void> _cargarContextoVentaFallback() async {
     final needsModelo = (_modeloSeleccionado == null || _modeloSeleccionado!.trim().isEmpty);
     final needsSerialEq = (_serialEquipo == null || _serialEquipo!.trim().isEmpty);
@@ -85,8 +89,9 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
     final needsPos = (_posPriceStr == null || _posPriceStr!.toString().trim().isEmpty);
     final needsPlan = (_planPriceStr == null || _planPriceStr!.toString().trim().isEmpty) || (_planTitle == null || _planTitle!.trim().isEmpty);
     final needsLinea = (_lineaName == null || _lineaName!.trim().isEmpty);
+    final needsLineaId = (_lineaId == null || _lineaId!.trim().isEmpty);
 
-    if (!(needsModelo || needsSerialEq || needsSerialSim || needsPos || needsPlan || needsLinea)) return;
+    if (!(needsModelo || needsSerialEq || needsSerialSim || needsPos || needsPlan || needsLinea || needsLineaId)) return;
     if (_rif.isEmpty) return;
 
     try {
@@ -109,6 +114,7 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
         _planTitle = needsPlan ? (d['planTitle']?.toString() ?? _planTitle) : _planTitle;
         _planPriceStr = needsPlan ? (d['planPrice']?.toString() ?? _planPriceStr) : _planPriceStr;
         _lineaName = needsLinea ? (d['lineaName']?.toString() ?? _lineaName) : _lineaName;
+        _lineaId = needsLineaId ? (d['lineaId']?.toString() ?? _lineaId) : _lineaId;
       });
     } catch (_) {/* silencio */}
   }
@@ -233,7 +239,7 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
                               child: SizedBox(
                                 height: 48,
                                 child: OutlinedButton.icon(
-                                  onPressed: _verComprobante,
+                                  onPressed: _saving ? null : _verComprobante,
                                   icon: const Icon(Icons.receipt_long),
                                   label: const Text('Ver comprobante'),
                                 ),
@@ -244,9 +250,15 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
                               child: SizedBox(
                                 height: 48,
                                 child: ElevatedButton.icon(
-                                  onPressed: _guardarYTerminar,
-                                  icon: const Icon(Icons.save_alt),
-                                  label: const Text('Guardar y terminar'),
+                                  onPressed: _saving ? null : _guardarYTerminar,
+                                  icon: _saving
+                                      ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                      : const Icon(Icons.save_alt),
+                                  label: Text(_saving ? 'Guardando...' : 'Guardar y terminar'),
                                   style: ElevatedButton.styleFrom(
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
@@ -271,10 +283,148 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
     Navigator.pushNamed(context, '/ventas/datos-finales', arguments: _args);
   }
 
-  void _guardarYTerminar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('OK. Pendiente: lógica final de “Guardar y terminar”.')),
-    );
+// ======================= GUARDAR TODO =======================
+  Future<void> _guardarYTerminar() async {
+    setState(() => _saving = true);
+    try {
+      final db = FirebaseFirestore.instance;
+
+// 1) Tomamos snapshot de la deuda actual del cliente para guardarla junto a la relación
+      double deudaActual = 0;
+      String? clienteDocId;
+      if (_rif.isNotEmpty) {
+        final cq = await db
+            .collection('Cliente_completo')
+            .where('rif_lower', isEqualTo: _rif.toLowerCase())
+            .limit(1)
+            .get();
+        if (cq.docs.isNotEmpty) {
+          final d = cq.docs.first.data();
+          clienteDocId = cq.docs.first.id;
+          deudaActual = _toDouble(d['deuda']);
+        }
+      }
+
+// 2) Preparamos payload completo para Cliente_Terminal
+      final payload = <String, dynamic>{
+// vínculo cliente
+        'rif': _rif,
+        'rif_lower': _rif.toLowerCase(),
+        'clienteRef': clienteDocId,
+        'clienteSnapshot': _clienteDoc?.data() ?? {},
+
+// contexto de venta
+        'tipo': _tipo, // pdv/efectivo/transferencia/access/comodato
+        'args': _args, // guardamos TODO lo que llegó, por si hace falta auditar
+        'lineaId': _lineaId,
+        'lineaName': _lineaName,
+        'planTitle': _planTitle,
+        'planDesc': _planDesc,
+        'planPrice': _planPriceStr,
+        'modeloSeleccionado': _modeloSeleccionado,
+        'posPrice': _posPriceStr,
+        'total': _totalStr,
+
+// seriales seleccionados
+        'serialEquipo': _serialEquipo,
+        'serialSim': _serialSim,
+
+// estado financiero al momento de cierre
+        'deuda_actual': deudaActual,
+
+// marcas de tiempo
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+// 3) Creamos documento en Cliente_Terminal
+      final docRef = await db.collection('Cliente_Terminal').add(payload);
+
+// 4) Eliminamos serie del equipo en almacén (si procede)
+      final removed = <String, dynamic>{};
+      if ((_serialEquipo ?? '').trim().isNotEmpty && (_modeloSeleccionado ?? '').trim().isNotEmpty) {
+        final ok = await _findAndDeleteEquipo(
+          db: db,
+          modeloId: _modeloSeleccionado!.trim().toLowerCase(),
+          serial: _serialEquipo!.trim(),
+        );
+        removed['equipo_serial_removed'] = ok ? _serialEquipo : null;
+      }
+
+// 5) Eliminamos SIM/tarjeta de su almacén (si procede)
+      if ((_serialSim ?? '').trim().isNotEmpty && (_lineaId ?? '').trim().isNotEmpty) {
+        final ok = await _findAndDeleteSim(
+          db: db,
+          lineaId: _lineaId!.trim().toLowerCase(),
+          serial: _serialSim!.trim(),
+        );
+        removed['sim_serial_removed'] = ok ? _serialSim : null;
+      }
+
+// 6) Guardamos en el mismo doc qué seriales se removieron efectivamente
+      if (removed.isNotEmpty) {
+        await docRef.update({'removed': removed});
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Guardado correctamente en Cliente_Terminal.')),
+      );
+
+// Aquí NO tocamos la deuda del cliente (ya fue ajustada en cada flujo de pago).
+// Solo almacenamos "deuda_actual" para referencia. Si quieres forzar sync, dímelo y lo añadimos.
+
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al guardar: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Elimina 1 documento en /almacen_pdv/{modeloId}/equipos con field serial == X
+  Future<bool> _findAndDeleteEquipo({
+    required FirebaseFirestore db,
+    required String modeloId,
+    required String serial,
+  }) async {
+    try {
+      final q = await db
+          .collection('almacen_pdv')
+          .doc(modeloId)
+          .collection('equipos')
+          .where('serial', isEqualTo: serial)
+          .limit(1)
+          .get();
+      if (q.docs.isEmpty) return false;
+      await q.docs.first.reference.delete();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Elimina 1 documento en /almacen_tarjetas/{lineaId}/tarjetas con field serial == X
+  Future<bool> _findAndDeleteSim({
+    required FirebaseFirestore db,
+    required String lineaId,
+    required String serial,
+  }) async {
+    try {
+      final q = await db
+          .collection('almacen_tarjetas')
+          .doc(lineaId)
+          .collection('tarjetas')
+          .where('serial', isEqualTo: serial)
+          .limit(1)
+          .get();
+      if (q.docs.isEmpty) return false;
+      await q.docs.first.reference.delete();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
 // ------ helpers UI ------
@@ -444,7 +594,7 @@ class _MetodoPagoView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[
-// ⬇️ Nuevo: encabezado con el tipo de pago
+// ⬇️ encabezado con el tipo de pago
       _row('Pagó con', _prettyMetodo()),
     ];
 
