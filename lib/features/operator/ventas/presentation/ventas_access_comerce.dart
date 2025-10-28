@@ -200,20 +200,32 @@ class _VentasAccessComerceScreenState extends State<VentasAccessComerceScreen> {
         '/ventas/datos-finales',
         arguments: {
           'tipo': 'access',
+
+          // Datos Access
           'rif': _rif,
-          'monto': montoPag,
-          'total': _totalAPagar,
           'banco': _banco,
-          'aprobacion': aprobacion,
-          'trace': trace,
+          'comercio': empresa,            // nombre empresa/local
+          'direccion': ubicacion,         // ubicación
           'afiliado': afiliado,
-          'empresa': empresa,
-          'ubicacion': ubicacion,
           'terminal': terminal,
           'lote': lote,
-          'referencia': referencia, // ✅ ahora sí se llama igual que en el comprobante
           'fecha': _fecha,
           'hora': _hora,
+          'aprobacion': aprobacion,
+          'referencia': referencia,       // (ya lo validas 00#### o tu formato)
+          'trace': trace,
+          'monto': montoPag,
+
+          // ⬇️ Passthrough
+          'lineaName': (ModalRoute.of(context)?.settings.arguments as Map?)?['lineaName'],
+          'planTitle': (ModalRoute.of(context)?.settings.arguments as Map?)?['planTitle'],
+          'planDesc': (ModalRoute.of(context)?.settings.arguments as Map?)?['planDesc'],
+          'planPrice': (ModalRoute.of(context)?.settings.arguments as Map?)?['planPrice'],
+          'modeloSeleccionado': (ModalRoute.of(context)?.settings.arguments as Map?)?['modeloSeleccionado'],
+          'posPrice': (ModalRoute.of(context)?.settings.arguments as Map?)?['posPrice'],
+          'total': (ModalRoute.of(context)?.settings.arguments as Map?)?['total'],
+          'serialEquipo': (ModalRoute.of(context)?.settings.arguments as Map?)?['serialEquipo'],
+          'serialSim': (ModalRoute.of(context)?.settings.arguments as Map?)?['serialSim'],
         },
       );
     } catch (e) {

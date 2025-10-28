@@ -461,24 +461,37 @@ class _VentaPdvPagoScreenState extends State<VentaPdvPagoScreen> {
 
       if (!mounted) return;
 // --------- ÚNICO CAMBIO CRÍTICO ---------
+      final prevArgs =
+          (ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?) ?? {};
+
       Navigator.pushNamed(
         context,
         '/ventas/datos-finales',
         arguments: {
-          'tipo': 'pdv', // <- NECESARIO para pintar el comprobante
+          'tipo': 'pdv',
           'rif': _rif,
           'banco': banco,
           'cardBrand': _cardBrand,
           'comercio': comercio,
-          'terminal': terminal,
           'afiliado': afiliadoFinal,
-          'aprobacion': aprobacion,
+          'terminal': terminal,
           'lote': lote,
-          'referencia': referencia,
           'fecha': _fecha,
           'hora': _hora,
-          'monto': montoPagado, // la pantalla usa 'monto'
-          'total': _total,
+          'aprobacion': aprobacion,
+          'referencia': referencia,
+          'monto': montoPagado,
+
+          // Passthrough correcto desde prevArgs
+          'lineaName': prevArgs['lineaName'],
+          'planTitle': prevArgs['planTitle'],
+          'planDesc': prevArgs['planDesc'],
+          'planPrice': prevArgs['planPrice'],
+          'modeloSeleccionado': prevArgs['modeloSeleccionado'],
+          'posPrice': prevArgs['posPrice'],
+          'total': prevArgs['total'],
+          'serialEquipo': prevArgs['serialEquipo'],
+          'serialSim': prevArgs['serialSim'],
         },
       );
     } on FirebaseException catch (e) {

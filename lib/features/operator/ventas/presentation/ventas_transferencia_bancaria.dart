@@ -196,7 +196,10 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
         context,
         '/ventas/datos-finales',
         arguments: {
-          'tipo': 'transferencia', // <-- IMPORTANTE
+          // Identificación del tipo
+          'tipo': 'transferencia',
+
+          // Comprobante (ya lo tenías)
           'rif': _rif,
           'monto': monto,
           'total': _totalAPagar,
@@ -207,6 +210,16 @@ class _VentasTransferenciaBancariaScreenState extends State<VentasTransferenciaB
           'fecha': _fecha,
           'hora': _hora,
           'comercio': comercio,
+
+          // ⬇️ Passthrough para que no se pierdan
+          'lineaName': (ModalRoute.of(context)?.settings.arguments as Map?)?['lineaName'],
+          'planTitle': (ModalRoute.of(context)?.settings.arguments as Map?)?['planTitle'],
+          'planDesc': (ModalRoute.of(context)?.settings.arguments as Map?)?['planDesc'],
+          'planPrice': (ModalRoute.of(context)?.settings.arguments as Map?)?['planPrice'],
+          'modeloSeleccionado': (ModalRoute.of(context)?.settings.arguments as Map?)?['modeloSeleccionado'],
+          'posPrice': (ModalRoute.of(context)?.settings.arguments as Map?)?['posPrice'],
+          'serialEquipo': (ModalRoute.of(context)?.settings.arguments as Map?)?['serialEquipo'],
+          'serialSim': (ModalRoute.of(context)?.settings.arguments as Map?)?['serialSim'],
         },
       );
     } on FirebaseException catch (e) {

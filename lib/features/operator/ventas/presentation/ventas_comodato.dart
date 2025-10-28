@@ -202,15 +202,24 @@ class _VentasComodatoScreenState extends State<VentasComodatoScreen> {
         '/ventas/datos-finales',
         arguments: {
           'tipo': 'comodato',
+
+          // Comprobante comodato
           'rif': _rif,
-          'monto': montoComodato,
-          'total': montoComodato,
-          'referencia': referencia,
           'fecha': _fecha,
           'hora': _hora,
-          'lineaName': _lineaName,
-          'planTitle': _planTitle,
-          'modelo': _modeloSeleccionado,
+          'referencia': _referenciaCtrl.text.trim(), // 00 + 6 dígitos
+          'monto': montoComodato,                  // lo que cargaste a deuda
+
+          // ⬇️ Passthrough
+          'lineaName': (ModalRoute.of(context)?.settings.arguments as Map?)?['lineaName'],
+          'planTitle': (ModalRoute.of(context)?.settings.arguments as Map?)?['planTitle'],
+          'planDesc': (ModalRoute.of(context)?.settings.arguments as Map?)?['planDesc'],
+          'planPrice': (ModalRoute.of(context)?.settings.arguments as Map?)?['planPrice'],
+          'modeloSeleccionado': (ModalRoute.of(context)?.settings.arguments as Map?)?['modeloSeleccionado'],
+          'posPrice': (ModalRoute.of(context)?.settings.arguments as Map?)?['posPrice'],
+          'total': (ModalRoute.of(context)?.settings.arguments as Map?)?['total'],
+          'serialEquipo': (ModalRoute.of(context)?.settings.arguments as Map?)?['serialEquipo'],
+          'serialSim': (ModalRoute.of(context)?.settings.arguments as Map?)?['serialSim'],
         },
       );
     } on FirebaseException catch (e) {

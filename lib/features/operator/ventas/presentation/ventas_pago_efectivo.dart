@@ -160,15 +160,27 @@ class _VentasPagoEfectivoScreenState extends State<VentasPagoEfectivoScreen> {
         '/ventas/datos-finales',
         arguments: {
           'tipo': 'efectivo',
+
+          // Datos de efectivo
           'rif': _rif,
+          'moneda': _moneda,          // 'Bs' | 'USD'
           'monto': monto,
-          'total': _totalAPagar,
-          'moneda': _moneda,
-          'aprobacion': aprobacion,
-          'referencia': referencia,
-          'comercio': comercio,
+          'comercio': _comercioCtrl.text.trim(),
           'fecha': _fecha,
           'hora': _hora,
+          'aprobacion': _aprobacionCtrl.text.trim(),
+          'referencia': _referenciaCtrl.text.trim(),
+
+          // ⬇️ Passthrough
+          'lineaName': (ModalRoute.of(context)?.settings.arguments as Map?)?['lineaName'],
+          'planTitle': (ModalRoute.of(context)?.settings.arguments as Map?)?['planTitle'],
+          'planDesc': (ModalRoute.of(context)?.settings.arguments as Map?)?['planDesc'],
+          'planPrice': (ModalRoute.of(context)?.settings.arguments as Map?)?['planPrice'],
+          'modeloSeleccionado': (ModalRoute.of(context)?.settings.arguments as Map?)?['modeloSeleccionado'],
+          'posPrice': (ModalRoute.of(context)?.settings.arguments as Map?)?['posPrice'],
+          'total': (ModalRoute.of(context)?.settings.arguments as Map?)?['total'],
+          'serialEquipo': (ModalRoute.of(context)?.settings.arguments as Map?)?['serialEquipo'],
+          'serialSim': (ModalRoute.of(context)?.settings.arguments as Map?)?['serialSim'],
         },
       );
     } on FirebaseException catch (e) {
