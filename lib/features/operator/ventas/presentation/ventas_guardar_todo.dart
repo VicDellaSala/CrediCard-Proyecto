@@ -369,9 +369,13 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Guardado correctamente en Cliente_Terminal.')),
       );
-
-// Aquí NO tocamos la deuda del cliente (ya fue ajustada en cada flujo de pago).
-// Solo almacenamos "deuda_actual" para referencia. Si quieres forzar sync, dímelo y lo añadimos.
+// ⬇️ Llevar al menú principal del operador
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/operator_home_screen',
+            (route) => false,
+      );
+// 👉 Ir al menú principal (ajusta la ruta si tu home NO es '/')
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
 
     } catch (e) {
       if (!mounted) return;
@@ -405,24 +409,64 @@ class _VentasGuardarTodoScreenState extends State<VentasGuardarTodoScreen> {
     }
   }
 
-  /// Elimina 1 documento en /almacen_tarjetas/{lineaId}/tarjetas con field serial == X
+  /// Elimina 1 documento en /almacen_tarjetas/{lineaId}/tarjetas
+  /// Prioriza docId == serial (tu estructura actual), y si no existe,
+  /// intenta por campo `serial == X` como fallback.
+  /// Elimina 1 documento en /almacen_tarjetas/{lineaId}/tarjetas
+  /// Intenta por docId con múltiples variantes y luego por campo `serial`.
+  /// Elimina 1 documento en /almacen_tarjetas/{lineaId}/tarjetas con el serial dado.
+  /// - Normaliza: quita espacios y símbolos, compara en minúsculas.
+  /// - Intenta por docId en múltiples variantes.
+  /// - Si no, barre la subcolección y compara normalizado contra id y contra el campo `serial` si existe.
+  /// Devuelve true si eliminó algo.
+  /// Elimina 1 documento en /almacen_tarjetas/{lineaId}/tarjetas con el serial dado.
+  /// Intenta por serial_lower, por serial, y luego por docId (lower y tal cual).
   Future<bool> _findAndDeleteSim({
     required FirebaseFirestore db,
     required String lineaId,
     required String serial,
   }) async {
     try {
-      final q = await db
+      final col = db
           .collection('almacen_tarjetas')
-          .doc(lineaId)
-          .collection('tarjetas')
-          .where('serial', isEqualTo: serial)
-          .limit(1)
-          .get();
-      if (q.docs.isEmpty) return false;
-      await q.docs.first.reference.delete();
-      return true;
-    } catch (_) {
+          .doc(lineaId.trim().toLowerCase())
+          .collection('tarjetas');
+
+      final sLower = serial.trim().toLowerCase();
+      final sExact = serial.trim();
+
+      // 1) Buscar por serial_lower
+      var q = await col.where('serial_lower', isEqualTo: sLower).limit(1).get();
+      if (q.docs.isNotEmpty) {
+        await q.docs.first.reference.delete();
+        return true;
+      }
+
+      // 2) Buscar por serial exacto (por si está en mayúsculas en el campo)
+      q = await col.where('serial', isEqualTo: sExact).limit(1).get();
+      if (q.docs.isNotEmpty) {
+        await q.docs.first.reference.delete();
+        return true;
+      }
+
+      // 3) Intentar docId == serial_lower
+      final byIdLower = await col.doc(sLower).get();
+      if (byIdLower.exists) {
+        await byIdLower.reference.delete();
+        return true;
+      }
+
+      // 4) Intentar docId == serial tal cual
+      final byIdExact = await col.doc(sExact).get();
+      if (byIdExact.exists) {
+        await byIdExact.reference.delete();
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      // Por si alguna regla/permiso falla silenciosamente
+      // print('Delete SIM error: $e');
       return false;
     }
   }
